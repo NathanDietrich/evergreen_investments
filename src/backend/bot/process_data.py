@@ -1,71 +1,62 @@
-# src/backend/services/process_data.py
+# process_data.py
+"""
+process_data.py
+Version: 2025-03-16
+
+Contains functions for computing technical indicators and
+forward-filling/back-filling missing values (matching the training pipeline).
+"""
 
 import pandas as pd
 
-def process_data(raw_data: dict):
+def calculate_technical_indicators(df):
     """
-    Process raw data by merging historical stock data with sentiment data,
-    then applying a scaling function.
+    Calculates the technical indicators that match the training pipeline:
+      - SMA_10, SMA_20
+      - EMA_10, EMA_20
+      - RSI
+      - MACD, MACD_Signal
     
-    Args:
-        raw_data (dict): A dictionary containing:
-            - "historical_data": Expected to be a dict with a "results" key.
-            - "sentiment_data": Expected to be a dict with a "results" key.
-            - "market_open": A flag (0 or 1).
-            
-    Returns:
-        dict: A dictionary containing the processed data and market flag.
-    """
-    # Extract historical data from raw_data
-    historical_results = raw_data.get("historical_data", {}).get("results", [])
-    if historical_results:
-        hist_df = pd.DataFrame(historical_results)
-        # Convert the timestamp 't' (in ms) to a datetime and extract date only
-        hist_df['date'] = pd.to_datetime(hist_df['t'], unit='ms')
-        hist_df['date_only'] = hist_df['date'].dt.date
-    else:
-        hist_df = pd.DataFrame()
-    
-    # Extract sentiment data from raw_data
-    sentiment_results = raw_data.get("sentiment_data", {}).get("results", [])
-    if sentiment_results:
-        sent_df = pd.DataFrame(sentiment_results)
-        # Assuming sentiment data includes a published date, e.g., 'published_utc'
-        if 'published_utc' in sent_df.columns:
-            sent_df['date'] = pd.to_datetime(sent_df['published_utc'])
-            sent_df['date_only'] = sent_df['date'].dt.date
-    else:
-        sent_df = pd.DataFrame()
-    
-    # Merge the historical and sentiment data on the date (if both exist)
-    if not hist_df.empty and not sent_df.empty:
-        merged_df = pd.merge(hist_df, sent_df, on='date_only', how='left', suffixes=('_hist', '_sent'))
-    else:
-        # If sentiment data is empty, just use historical data
-        merged_df = hist_df.copy()
+    Leaves 'Open', 'High', 'Low', 'Close', 'Volume' intact.
+    Also preserves any sentiment columns that might be present
+    ('sentiment_polarity', 'sentiment_subjectivity').
 
-    # Now, pass the merged data to a scaling function (dummy for now)
-    scaled_data = scale_data(merged_df)
-    
-    return {
-        "processed_data": scaled_data.to_dict(orient="records"),
-        "market_open": raw_data.get("market_open", 0)
-    }
+    Instead of dropping rows with NaN, we forward-fill and back-fill
+    so the pipeline can handle data outages.
 
-def scale_data(df: pd.DataFrame):
+    Final columns should include:
+      'Open', 'High', 'Low', 'Close', 'Volume',
+      'SMA_10', 'SMA_20', 'EMA_10', 'EMA_20', 'RSI',
+      'MACD', 'MACD_Signal', 'sentiment_polarity', 'sentiment_subjectivity'
     """
-    Dummy scaling function.
-    In the future, you'll load saved scalers and apply them.
-    For now, this function just returns the original DataFrame.
-    
-    Args:
-        df (pd.DataFrame): The DataFrame to scale.
-        
-    Returns:
-        pd.DataFrame: The (unscaled) DataFrame.
-    """
-    # Here you can eventually load and apply a scaler, e.g.:
-    # from joblib import load
-    # scaler = load("path/to/scaler.joblib")
-    # df[["o", "c", "h", "l"]] = scaler.transform(df[["o", "c", "h", "l"]])
+    if df is None or df.empty:
+        return df
+
+    # Calculate SMAs
+    df['SMA_10'] = df['Close'].rolling(window=10, min_periods=1).mean()
+    df['SMA_20'] = df['Close'].rolling(window=20, min_periods=1).mean()
+
+    # Calculate EMAs
+    df['EMA_10'] = df['Close'].ewm(span=10, adjust=False).mean()
+    df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
+
+    # RSI
+    delta = df['Close'].diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.rolling(window=14, min_periods=1).mean()
+    avg_loss = loss.rolling(window=14, min_periods=1).mean()
+    rs = avg_gain / (avg_loss + 1e-6)  # avoid div-by-zero
+    df['RSI'] = 100 - (100 / (1 + rs))
+
+    # MACD
+    ema12 = df['Close'].ewm(span=12, adjust=False).mean()
+    ema26 = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = ema12 - ema26
+    df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+
+    # Forward fill and back fill to handle missing data
+    df.fillna(method='ffill', inplace=True)
+    df.fillna(method='bfill', inplace=True)
+
     return df
