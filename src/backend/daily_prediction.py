@@ -28,6 +28,19 @@ from .bot.scale_data import apply_existing_scalers, invert_target_scaling
 from .bot.input_sequence import build_inference_sequence
 from .bot.model_loading import load_model_for_ticker
 
+# ----------------------------------------------------------------------------
+# Compute the project root, so we can reliably locate "scalers/" at the root.
+# This assumes your project layout is something like:
+# evergreen_investments/
+#   ├─ scalers/
+#   ├─ src/
+#       └─ backend/
+#           └─ daily_prediction.py
+# ----------------------------------------------------------------------------
+THIS_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(THIS_FILE_DIR, '..', '..'))
+SCALER_DIR = os.path.join(PROJECT_ROOT, 'scalers')
+
 def update_and_save_data(ticker, days=120):
     """
     Fetches raw data for the past `days` (ending yesterday),
@@ -69,7 +82,7 @@ def update_and_save_data(ticker, days=120):
         return None
 
     # Save processed CSV in src/backend/data (relative to this file)
-    data_folder = os.path.join(os.path.dirname(__file__), 'data')
+    data_folder = os.path.join(THIS_FILE_DIR, 'data')
     os.makedirs(data_folder, exist_ok=True)
     processed_filepath = os.path.join(data_folder, f"{ticker}_processed.csv")
     X.to_csv(processed_filepath, index=False)
@@ -88,8 +101,12 @@ def predict_next_close(ticker, sequence_length=60):
         print("Failed to update data.")
         return None
 
-    # Load existing scalers and apply them to the processed data
-    df_scaled, target_scaler = apply_existing_scalers(X_processed, ticker)
+    # Load existing scalers (features + target) and apply them to the processed data
+    df_scaled, target_scaler = apply_existing_scalers(
+        X_processed, 
+        ticker, 
+        scaler_dir=SCALER_DIR
+    )
     if df_scaled is None:
         print("Scaling failed.")
         return None
@@ -115,11 +132,20 @@ def predict_next_close(ticker, sequence_length=60):
         print("Model could not be loaded.")
         return None
 
-    # Predict tomorrow's Close (output is in scaled space)
+    # Predict tomorrow's Close (currently in scaled space)
     scaled_prediction = model.predict(input_seq)
-    predicted_close = invert_target_scaling(scaled_prediction, ticker)
-    print(f"Predicted tomorrow's Close for {ticker}: {predicted_close[0]:.4f}")
-    return predicted_close[0]
+
+    # Now invert the scaling of that prediction using the target scaler at SCALER_DIR
+    predicted_close = invert_target_scaling(
+        scaled_prediction,
+        ticker,
+        scaler_dir=SCALER_DIR
+    )
+
+    # In case predicted_close is a numpy array, cast to float for printing
+    predicted_close_value = float(predicted_close[0])
+    print(f"Predicted tomorrow's Close for {ticker}: {predicted_close_value:.4f}")
+    return predicted_close_value
 
 def main():
     ticker = input("Enter ticker symbol (e.g., AAPL): ").strip().upper()
