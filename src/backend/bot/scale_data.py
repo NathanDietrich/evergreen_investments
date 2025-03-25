@@ -1,3 +1,4 @@
+# src/backend/bot/scale_data.py
 """
 scale_data.py
 Version: 2025-03-17
@@ -15,9 +16,9 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
-def create_and_save_scalers(df, ticker, target_col='Close', exclude_cols=['sentiment_polarity', 'sentiment_subjectivity'], scaler_dir=None):
+def create_and_save_scalers(df, ticker, target_col='CloseTomorrow', exclude_cols=['sentiment_polarity', 'sentiment_subjectivity'], scaler_dir=None):
     """
-    Fits MinMaxScalers for the features (including the target column) and for the target on the given DataFrame,
+    Fits MinMaxScalers for the features and for the target on the given DataFrame,
     then saves them as {ticker}_features_scaler.pkl and {ticker}_target_scaler.pkl
     in the provided scaler_dir (or in the local "scalers" folder if not provided).
     
@@ -25,24 +26,22 @@ def create_and_save_scalers(df, ticker, target_col='Close', exclude_cols=['senti
       df_scaled: DataFrame with scaled features and target.
       scaler_features, scaler_target: the fitted scaler objects.
       
-    Note: Here we include the target column in the features scaler so that the input features match your use case:
-          using Thursday's (or current day's) data including the "Close" value to predict tomorrow's close.
+    Note: Exclude target_col from the features scaler so that it is only scaled by the target scaler.
     """
     if scaler_dir is None:
         scaler_dir = os.path.join(os.getcwd(), "scalers")
     os.makedirs(scaler_dir, exist_ok=True)
     
-    # Feature columns: all numeric columns except the ones in exclude_cols.
-    # Notice we now keep the target_col ("Close") as a feature.
-    numeric_cols = [col for col in df.select_dtypes(include=['float64','int64']).columns if col not in exclude_cols]
+    # Feature columns: all numeric columns except exclude_cols and target_col
+    numeric_cols = [col for col in df.select_dtypes(include=['float64','int64']).columns if col not in exclude_cols + [target_col]]
     
     scaler_features = MinMaxScaler()
     scaler_target = MinMaxScaler()
     
     df_scaled = df.copy()
-    # Fit features scaler on all numeric columns (including "Close")
+    # Scale features (excluding target_col)
     df_scaled[numeric_cols] = scaler_features.fit_transform(df_scaled[numeric_cols])
-    # Fit target scaler only on the target column
+    # Scale target_col only with target scaler
     df_scaled[target_col] = scaler_target.fit_transform(df_scaled[[target_col]])
     
     features_scaler_path = os.path.join(scaler_dir, f"{ticker}_features_scaler.pkl")
@@ -56,7 +55,7 @@ def create_and_save_scalers(df, ticker, target_col='Close', exclude_cols=['senti
     
     return df_scaled, scaler_features, scaler_target
 
-def apply_existing_scalers(df, ticker, target_col='Close', exclude_cols=['sentiment_polarity', 'sentiment_subjectivity'], scaler_dir=None):
+def apply_existing_scalers(df, ticker, target_col='CloseTomorrow', exclude_cols=['sentiment_polarity', 'sentiment_subjectivity'], scaler_dir=None):
     """
     Loads pre-fitted scalers from the provided scaler_dir (or the local "scalers" folder by default)
     and applies them to df.
@@ -65,8 +64,7 @@ def apply_existing_scalers(df, ticker, target_col='Close', exclude_cols=['sentim
     Returns:
       (df_scaled, scaler_target)
       
-    Note: The features scaler is applied to all numeric columns except those in exclude_cols.
-          This means "Close" will be transformed as a feature.
+    Note: The features scaler is applied to all numeric columns except those in exclude_cols and the target column.
     """
     if scaler_dir is None:
         scaler_dir = os.path.join(os.getcwd(), "scalers")
@@ -84,8 +82,8 @@ def apply_existing_scalers(df, ticker, target_col='Close', exclude_cols=['sentim
     scaler_features = joblib.load(features_scaler_path)
     scaler_target = joblib.load(target_scaler_path)
     
-    # Use the same feature columns as during scaler fitting: all numeric columns except exclude_cols.
-    numeric_cols = [col for col in df.select_dtypes(include=['float64','int64']).columns if col not in exclude_cols]
+    # Use the same feature columns as during scaler fitting: all numeric columns except exclude_cols and target_col.
+    numeric_cols = [col for col in df.select_dtypes(include=['float64','int64']).columns if col not in exclude_cols + [target_col]]
     
     df_scaled = df.copy()
     df_scaled[numeric_cols] = scaler_features.transform(df_scaled[numeric_cols])

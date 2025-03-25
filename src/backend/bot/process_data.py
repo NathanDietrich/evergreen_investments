@@ -32,17 +32,21 @@ def calculate_technical_indicators(df):
 def process_data(raw_df):
     """
     Processes raw data by calculating technical indicators, dropping the Date column,
-    and splitting into features and target.
+    and creating a shifted label "CloseTomorrow" (tomorrow's Close).
     Version: 2025-03-17
     Returns:
       X: DataFrame with features (includes today's values, including 'Close')
-      y: Series with target (tomorrow's Close)
+      y: Series with target (tomorrow's Close, i.e. "CloseTomorrow")
     """
     df = raw_df.copy()
     df = calculate_technical_indicators(df)
+    # Create a new column for tomorrow's close
+    df['CloseTomorrow'] = df['Close'].shift(-1)
+    # Drop the last row that has NaN in CloseTomorrow
+    df.dropna(subset=['CloseTomorrow'], inplace=True)
     if 'Date' in df.columns:
         df.drop(columns=['Date'], inplace=True)
     # X includes all features (including today's Close)
-    y = df['Close'].copy()
+    y = df['CloseTomorrow'].copy()
     X = df.copy()
     return X, y

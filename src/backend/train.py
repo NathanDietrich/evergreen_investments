@@ -163,7 +163,7 @@ def main():
         from .bot.scale_data import create_and_save_scalers
         df_scaled, scaler_features, scaler_target = create_and_save_scalers(X, ticker, scaler_dir=SCALER_DIR)
         
-        # Create training sequences
+        # Create training sequences – using "CloseTomorrow" as the label
         from .bot.input_sequence import create_sequences
         feature_cols = [
             'Open', 'High', 'Low', 'Close', 'Volume',
@@ -171,7 +171,8 @@ def main():
             'MACD', 'MACD_Signal', 'sentiment_polarity', 'sentiment_subjectivity'
         ]
         sequence_length = 60
-        X_seq, y_seq = create_sequences(df_scaled, feature_cols, label_col='Close', sequence_length=sequence_length)
+        # Change: use 'CloseTomorrow' as the label column (per Option B)
+        X_seq, y_seq = create_sequences(df_scaled, feature_cols, label_col='CloseTomorrow', sequence_length=sequence_length)
         print(f"Sequences created for {ticker}: X shape {X_seq.shape}, y shape {y_seq.shape}")
         
         # Split sequences into train, validation, test (70/15/15 split)
@@ -263,8 +264,9 @@ def main():
         print(f"Test Loss: {loss:.4f}, Test MAE: {mae:.4f}")
         
         predictions = model.predict(X_test)
-        predictions_rescaled = invert_target_scaling(predictions, ticker)
-        y_test_rescaled = invert_target_scaling(y_test, ticker)
+        # Invert scaling using the target scaler (applied to CloseTomorrow)
+        predictions_rescaled = invert_target_scaling(predictions, ticker, scaler_dir=SCALER_DIR)
+        y_test_rescaled = invert_target_scaling(y_test, ticker, scaler_dir=SCALER_DIR)
         
         # Calculate directional accuracy
         correct_direction = 0

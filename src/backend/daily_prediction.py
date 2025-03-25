@@ -7,7 +7,7 @@ This script fetches raw stock and sentiment data for a given ticker,
 processes and scales the data (saving the scaled CSV locally in src/backend/data),
 builds an input sequence from the latest 120 days of raw data (ensuring enough data remains after processing),
 loads the pre-trained model for that ticker, and outputs a prediction
-for tomorrow's Close using today's features.
+for tomorrow's Close (i.e. CloseTomorrow) using today's features.
 """
 
 import os
@@ -27,19 +27,6 @@ from .bot.process_data import process_data  # returns (X, y)
 from .bot.scale_data import apply_existing_scalers, invert_target_scaling
 from .bot.input_sequence import build_inference_sequence
 from .bot.model_loading import load_model_for_ticker
-
-# ----------------------------------------------------------------------------
-# Compute the project root, so we can reliably locate "scalers/" at the root.
-# This assumes your project layout is something like:
-# evergreen_investments/
-#   ├─ scalers/
-#   ├─ src/
-#       └─ backend/
-#           └─ daily_prediction.py
-# ----------------------------------------------------------------------------
-THIS_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(THIS_FILE_DIR, '..', '..'))
-SCALER_DIR = os.path.join(PROJECT_ROOT, 'scalers')
 
 def update_and_save_data(ticker, days=120):
     """
@@ -75,14 +62,14 @@ def update_and_save_data(ticker, days=120):
         print("Merged data is empty.")
         return None
 
-    print("Processing data (calculating technical indicators)...")
+    print("Processing data (calculating technical indicators and creating CloseTomorrow)...")
     X, y = process_data(merged_df)
     if X is None or X.empty:
         print("Processed features DataFrame is empty.")
         return None
 
     # Save processed CSV in src/backend/data (relative to this file)
-    data_folder = os.path.join(THIS_FILE_DIR, 'data')
+    data_folder = os.path.join(os.path.dirname(__file__), 'data')
     os.makedirs(data_folder, exist_ok=True)
     processed_filepath = os.path.join(data_folder, f"{ticker}_processed.csv")
     X.to_csv(processed_filepath, index=False)
@@ -101,17 +88,16 @@ def predict_next_close(ticker, sequence_length=60):
         print("Failed to update data.")
         return None
 
-    # Load existing scalers (features + target) and apply them to the processed data
-    df_scaled, target_scaler = apply_existing_scalers(
-        X_processed, 
-        ticker, 
-        scaler_dir=SCALER_DIR
-    )
+    # Set scaler_dir to the "scalers" folder at the project root
+    scaler_dir = os.path.join(os.getcwd(), "scalers")
+    
+    # Load existing scalers and apply them to the processed data
+    df_scaled, target_scaler = apply_existing_scalers(X_processed, ticker, scaler_dir=scaler_dir)
     if df_scaled is None:
         print("Scaling failed.")
         return None
 
-    # Feature columns (must match training, including 'Close')
+    # Feature columns (must match training; note that the target label is "CloseTomorrow")
     feature_cols = [
         'Open', 'High', 'Low', 'Close', 'Volume',
         'SMA_10', 'SMA_20', 'EMA_10', 'EMA_20', 'RSI',
@@ -132,20 +118,12 @@ def predict_next_close(ticker, sequence_length=60):
         print("Model could not be loaded.")
         return None
 
-    # Predict tomorrow's Close (currently in scaled space)
+    # Predict tomorrow's Close (the model outputs in scaled space)
     scaled_prediction = model.predict(input_seq)
-
-    # Now invert the scaling of that prediction using the target scaler at SCALER_DIR
-    predicted_close = invert_target_scaling(
-        scaled_prediction,
-        ticker,
-        scaler_dir=SCALER_DIR
-    )
-
-    # In case predicted_close is a numpy array, cast to float for printing
-    predicted_close_value = float(predicted_close[0])
-    print(f"Predicted tomorrow's Close for {ticker}: {predicted_close_value:.4f}")
-    return predicted_close_value
+    predicted_close = invert_target_scaling(scaled_prediction, ticker, scaler_dir=scaler_dir)
+    # Convert the prediction to a float for display
+    print(f"Predicted tomorrow's Close for {ticker}: {float(predicted_close[0]):.4f}")
+    return predicted_close[0]
 
 def main():
     ticker = input("Enter ticker symbol (e.g., AAPL): ").strip().upper()

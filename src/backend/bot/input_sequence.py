@@ -1,10 +1,10 @@
 # src/backend/bot/input_sequence.py
 import numpy as np
 
-def create_sequences(df, feature_cols, label_col='Close', sequence_length=60):
+def create_sequences(df, feature_cols, label_col='CloseTomorrow', sequence_length=60):
     """
     Creates sequences from the DataFrame.
-    Each sample: features from day T and label is day T+1's Close.
+    Each sample: features from day T and label is day T+1's CloseTomorrow.
     Version: 2025-03-16
     Returns:
       X: array of shape (num_samples, sequence_length, num_features)
