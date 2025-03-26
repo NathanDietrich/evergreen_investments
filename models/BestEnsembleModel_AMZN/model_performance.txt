@@ -1,0 +1,5 @@
+Test Loss: 0.0120
+Test MAE: 0.0696
+Directional Accuracy: 50.77%
+Tuning Time (sec): 786.79
+Training Time (sec): 35.76

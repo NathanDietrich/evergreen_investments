@@ -1,0 +1,1 @@
+{"cnn_filters": 64, "cnn_kernel_size": 3, "rnn_units": 75, "dropout_rate": 0.1, "rnn_units_2": 150, "dropout_rate_2": 0.1, "lstm_units": 50, "lstm_units_2": 75, "dropout_rate_lstm": 0.1, "dense_units": 50, "dropout_rate_dense": 0.2, "learning_rate": 0.001}

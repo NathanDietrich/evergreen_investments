@@ -1,1 +1,1 @@
-{"cnn_filters": 64, "cnn_kernel_size": 3, "rnn_units": 75, "dropout_rate": 0.2, "rnn_units_2": 75, "dropout_rate_2": 0.1, "lstm_units": 100, "lstm_units_2": 50, "dropout_rate_lstm": 0.2, "dense_units": 50, "dropout_rate_dense": 0.1, "learning_rate": 0.001}
+{"cnn_filters": 128, "cnn_kernel_size": 5, "rnn_units": 150, "dropout_rate": 0.05, "rnn_units_2": 125, "dropout_rate_2": 0.1, "lstm_units": 100, "lstm_units_2": 100, "dropout_rate_lstm": 0.2, "dense_units": 50, "dropout_rate_dense": 0.2, "learning_rate": 0.001}

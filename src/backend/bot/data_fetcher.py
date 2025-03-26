@@ -1,4 +1,3 @@
-# src/backend/bot/data_fetcher.py
 """
 data_fetcher.py
 Version: 2025-03-16
@@ -87,13 +86,19 @@ def analyze_sentiment(news_data):
         sentiment = TextBlob(full_text).sentiment
         analyzed_data.append({
             "sentiment_polarity": sentiment.polarity,
-            "sentiment_subjectivity": sentiment.subjectivity
+            "sentiment_subjectivity": sentiment.subjectivity,
+            "published_utc": article.get("published_utc", None)  # Keep the published time for grouping
         })
     return analyzed_data
 
 def merge_stock_and_sentiment(stock_df, sentiment_data):
     """
-    Merges stock data with sentiment data by date.
+    Merges stock data with sentiment data on a daily basis.
+    
+    Instead of averaging sentiment over the entire period,
+    this function groups sentiment data by date (derived from 'published_utc')
+    to compute daily average sentiment scores, and then merges these values
+    into the stock DataFrame based on the Date.
     """
     if stock_df is None or stock_df.empty:
         return stock_df
@@ -101,12 +106,39 @@ def merge_stock_and_sentiment(stock_df, sentiment_data):
         stock_df["sentiment_polarity"] = 0
         stock_df["sentiment_subjectivity"] = 0
         return stock_df
+
+    # Create a DataFrame from sentiment data
     sentiment_df = pd.DataFrame(sentiment_data)
-    avg_polarity = sentiment_df["sentiment_polarity"].mean()
-    avg_subjectivity = sentiment_df["sentiment_subjectivity"].mean()
-    stock_df["sentiment_polarity"] = avg_polarity
-    stock_df["sentiment_subjectivity"] = avg_subjectivity
-    return stock_df
+    
+    # Convert published time to datetime and extract the date
+    if 'published_utc' in sentiment_df.columns:
+        sentiment_df['published_utc'] = pd.to_datetime(sentiment_df['published_utc'], errors='coerce')
+        sentiment_df['Date'] = sentiment_df['published_utc'].dt.date
+    else:
+        print("No 'published_utc' field found in sentiment data.")
+        stock_df["sentiment_polarity"] = 0
+        stock_df["sentiment_subjectivity"] = 0
+        return stock_df
+
+    # Group sentiment by Date to compute daily average scores
+    daily_sentiment = sentiment_df.groupby('Date').agg({
+        'sentiment_polarity': 'mean',
+        'sentiment_subjectivity': 'mean'
+    }).reset_index()
+
+    # Ensure stock_df has a Date column; if not, derive it from its 'Date' column (already present from fetch_stock_data_polygon)
+    if 'Date' not in stock_df.columns:
+        print("Stock data missing 'Date' column.")
+        stock_df["sentiment_polarity"] = 0
+        stock_df["sentiment_subjectivity"] = 0
+        return stock_df
+
+    # Merge the daily sentiment with the stock data on Date
+    merged = pd.merge(stock_df, daily_sentiment, on="Date", how="left")
+    merged["sentiment_polarity"].fillna(0, inplace=True)
+    merged["sentiment_subjectivity"].fillna(0, inplace=True)
+    
+    return merged
 
 def collect_raw_data():
     # For predictive purposes, we only need the last 80 days.
