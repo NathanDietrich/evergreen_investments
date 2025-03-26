@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.lines as mlines
 import matplotlib.ticker as mticker  # renamed to avoid conflict with 'ticker' variable
+from trading_dashboard import trading_dashboard
 
 def load_data():
     # Path to the CSV log file created by daily_prediction.py
@@ -121,11 +122,12 @@ def app():
     }, inplace=True)
 
     # Create tabs for organizing the dashboard
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "Predicted vs Actual",
         "Sentiment Over Time",
         "Direction Frequency",
-        "Data Table"
+        "Data Table",
+        "Trading Dashboard"
     ])
 
     # Tab 1: Custom Matplotlib Chart with actual dates on x-axis
@@ -169,6 +171,10 @@ def app():
     with tab4:
         st.subheader("Latest Predictions Data")
         st.dataframe(df_stock.sort_values("timestamp", ascending=False).head(20))
+
+    # Tab 5: Trading Dashboard
+    with tab5:
+        trading_dashboard()
 
 if __name__ == "__main__":
     app()
