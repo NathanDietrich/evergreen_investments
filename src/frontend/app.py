@@ -44,7 +44,6 @@ def load_data():
         
         # Sort objects by LastModified descending and get the latest one
         latest_object = sorted(objects, key=lambda obj: obj["LastModified"], reverse=True)[0]
-        # (Do not display the S3 file name to end users)
         
         # Download the file from S3 into memory
         obj = s3.get_object(Bucket=bucket_name, Key=latest_object["Key"])
@@ -101,34 +100,22 @@ def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"
 
 def display_trade_confirmation(trade_details):
     """
-    Displays a friendly confirmation message for a trade.
-    
-    Parameters:
-        trade_details (dict): A dictionary containing trade information.
+    Displays a short, cute text blurb about the trade:
+    - Ticker
+    - Buy or Sell
+    - Quantity
+    - Confirmed or Denied
     """
-    st.success("Order Confirmed!")
-    
     symbol = trade_details.get("symbol", "N/A")
-    order_type = trade_details.get("order_type", "N/A")
     side = trade_details.get("side", "N/A")
     qty = trade_details.get("qty", "N/A")
     status = trade_details.get("status", "N/A")
-    created_at = trade_details.get("created_at", "N/A")
-    expires_at = trade_details.get("expires_at", "N/A")
-    
-    st.markdown(f"""
-    **Trade Confirmation Details:**
 
-    - **Symbol:** {symbol}
-    - **Order Type:** {order_type.capitalize()}
-    - **Side:** {side.capitalize()}
-    - **Quantity:** {qty}
-    - **Status:** {status.capitalize()}
-    - **Created At:** {created_at}
-    - **Expires At:** {expires_at}
-
-    Thank you for your trade!
-    """)
+    # Consider 'filled' or 'confirmed' as a successful trade
+    if status.lower() in ["filled", "confirmed"]:
+        st.success(f"Trade Confirmed! You just placed a {side.upper()} order for {qty} shares of {symbol}.")
+    else:
+        st.error(f"Trade {status.capitalize()}! Your order to {side.upper()} {qty} shares of {symbol} was not approved.")
 
 def app():
     st.set_page_config(page_title="Evergreen Investments Dashboard", layout="wide")
@@ -178,9 +165,11 @@ def app():
             arrow = ""
             color = "black"
             direction_text = "No change"
+
+        # -- FIXED: ensure price text is visible --
         st.sidebar.markdown(f"""
         <div style="text-align:center; padding: 20px; border: 2px solid {color}; border-radius: 10px; background-color: #f9f9f9;">
-            <h1 style="font-size:3rem; margin: 0;">{price_pred}</h1>
+            <h1 style="font-size:3rem; margin: 0; color: black;">{price_pred}</h1>
             <h2 style="font-size:2rem; margin: 0; color:{color};">Direction: {arrow} {direction_text}</h2>
         </div>
         """, unsafe_allow_html=True)
