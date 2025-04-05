@@ -44,7 +44,7 @@ def load_data():
         
         # Sort objects by LastModified descending and get the latest one
         latest_object = sorted(objects, key=lambda obj: obj["LastModified"], reverse=True)[0]
-        # (Don't show the S3 file name to the end user)
+        # (Do not display the S3 file name to end users)
         
         # Download the file from S3 into memory
         obj = s3.get_object(Bucket=bucket_name, Key=latest_object["Key"])
@@ -99,11 +99,42 @@ def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"
     ax.set_title(f"{ticker} - Predicted vs Actual")
     return fig
 
+def display_trade_confirmation(trade_details):
+    """
+    Displays a friendly confirmation message for a trade.
+    
+    Parameters:
+        trade_details (dict): A dictionary containing trade information.
+    """
+    st.success("Order Confirmed!")
+    
+    symbol = trade_details.get("symbol", "N/A")
+    order_type = trade_details.get("order_type", "N/A")
+    side = trade_details.get("side", "N/A")
+    qty = trade_details.get("qty", "N/A")
+    status = trade_details.get("status", "N/A")
+    created_at = trade_details.get("created_at", "N/A")
+    expires_at = trade_details.get("expires_at", "N/A")
+    
+    st.markdown(f"""
+    **Trade Confirmation Details:**
+
+    - **Symbol:** {symbol}
+    - **Order Type:** {order_type.capitalize()}
+    - **Side:** {side.capitalize()}
+    - **Quantity:** {qty}
+    - **Status:** {status.capitalize()}
+    - **Created At:** {created_at}
+    - **Expires At:** {expires_at}
+
+    Thank you for your trade!
+    """)
+
 def app():
     st.set_page_config(page_title="Evergreen Investments Dashboard", layout="wide")
     st.title("Evergreen Investments - Daily Stock Predictions Dashboard")
     
-    # Indicate daily updates (your backend updates the S3 file daily)
+    # Inform the user that data updates daily
     st.markdown("_Data updates daily after market close._")
 
     # Disclaimer section
@@ -177,7 +208,6 @@ def app():
         if len(df_stock) < 2:
             st.info("Not enough data points for the chart.")
         else:
-            # Use actual dates from the timestamp column
             dates = df_stock['timestamp'].dt.date.values
             actual_prices = df_stock["Actual"].values
             predicted_prices = df_stock["Predicted"].values
@@ -213,9 +243,15 @@ def app():
         st.subheader("Latest Predictions Data")
         st.dataframe(df_stock.sort_values("timestamp", ascending=False).head(20))
 
-    # Tab 5: Trading Dashboard
+    # Tab 5: Trading Dashboard and Trade Confirmation
     with tab5:
-        trading_dashboard()
+        st.subheader("Trading Dashboard")
+        # Assume trading_dashboard() returns a dictionary of trade details when a trade is executed.
+        trade_details = trading_dashboard()
+        if trade_details:
+            display_trade_confirmation(trade_details)
+        else:
+            st.info("No trades executed yet.")
 
 if __name__ == "__main__":
     app()
