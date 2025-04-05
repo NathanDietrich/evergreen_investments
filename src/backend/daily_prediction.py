@@ -127,7 +127,7 @@ def log_prediction(ticker, predicted_close, processed_df, timestamp_override=Non
         else:
             ts_str = datetime.datetime.now().isoformat()
     else:
-        ts_str = datetime.datetime.now().isoformat()
+        ts_str = datetime.datetime.now().date().isoformat()
 
     new_entry = {
         "timestamp": ts_str,

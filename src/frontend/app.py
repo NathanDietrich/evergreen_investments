@@ -8,16 +8,55 @@ import matplotlib.dates as mdates
 import matplotlib.lines as mlines
 import matplotlib.ticker as mticker  # renamed to avoid conflict with 'ticker' variable
 from trading_dashboard import trading_dashboard
+import boto3
+import io
 
 def load_data():
-    # Path to the CSV log file created by daily_prediction.py
-    csv_path = os.path.join("src", "backend", "data", "daily_predictions_log.csv")
-    if os.path.exists(csv_path):
-        df = pd.read_csv(csv_path)
-        # Parse timestamps with inferred format
+    """
+    Loads the daily predictions log CSV from S3.
+    AWS credentials and bucket info are expected to be in Streamlit's secrets.
+    """
+    try:
+        # Read AWS credentials and bucket info from secrets
+        aws_access_key_id = st.secrets["AWS_ACCESS_KEY_ID"]
+        aws_secret_access_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
+        aws_region = st.secrets.get("AWS_REGION", "us-west-2")
+        bucket_name = st.secrets["S3_BUCKET"]
+        
+        # Initialize S3 client
+        s3 = boto3.client(
+            "s3",
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=aws_region
+        )
+        
+        # Define the prefix (adjust as needed)
+        prefix = "daily_predictions_log"
+        
+        # List objects with the given prefix
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        objects = response.get("Contents", [])
+        
+        if not objects:
+            st.warning("No prediction logs found in S3.")
+            return pd.DataFrame()
+        
+        # Sort objects by LastModified descending and get the latest one
+        latest_object = sorted(objects, key=lambda obj: obj["LastModified"], reverse=True)[0]
+        latest_key = latest_object["Key"]
+        st.write(f"Loading data from S3 file: {latest_key}")
+        
+        # Download the file from S3 into memory
+        obj = s3.get_object(Bucket=bucket_name, Key=latest_key)
+        df = pd.read_csv(io.BytesIO(obj['Body'].read()))
+        
+        # Parse the timestamp column
         df['timestamp'] = pd.to_datetime(df['timestamp'], infer_datetime_format=True, errors='coerce')
         return df
-    else:
+        
+    except Exception as e:
+        st.error(f"Error loading CSV data from S3: {e}")
         return pd.DataFrame()
 
 def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"):
