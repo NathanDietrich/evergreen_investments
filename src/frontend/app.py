@@ -44,11 +44,10 @@ def load_data():
         
         # Sort objects by LastModified descending and get the latest one
         latest_object = sorted(objects, key=lambda obj: obj["LastModified"], reverse=True)[0]
-        latest_key = latest_object["Key"]
-        st.write(f"Loading data from S3 file: {latest_key}")
+        # (Don't show the S3 file name to the end user)
         
         # Download the file from S3 into memory
-        obj = s3.get_object(Bucket=bucket_name, Key=latest_key)
+        obj = s3.get_object(Bucket=bucket_name, Key=latest_object["Key"])
         df = pd.read_csv(io.BytesIO(obj['Body'].read()))
         
         # Parse the timestamp column
@@ -56,7 +55,7 @@ def load_data():
         return df
         
     except Exception as e:
-        st.error(f"Error loading CSV data from S3: {e}")
+        st.error("Error loading CSV data from S3.")
         return pd.DataFrame()
 
 def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"):
@@ -103,6 +102,9 @@ def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"
 def app():
     st.set_page_config(page_title="Evergreen Investments Dashboard", layout="wide")
     st.title("Evergreen Investments - Daily Stock Predictions Dashboard")
+    
+    # Indicate daily updates (your backend updates the S3 file daily)
+    st.markdown("_Data updates daily after market close._")
 
     # Disclaimer section
     st.markdown("""
@@ -128,10 +130,10 @@ def app():
     # Filter and sort data for the selected stock
     df_stock = df[df["ticker"] == selected_stock].copy().sort_values("timestamp")
     
-    # Sidebar custom up/down indicator with enlarged display
+    # Sidebar custom up/down indicator with enhanced styling
     if not df_stock.empty:
         latest_entry = df_stock.iloc[-1]
-        price_pred = f"{latest_entry['predicted_close']:.2f}"
+        price_pred = f"${latest_entry['predicted_close']:.2f}"
         direction = latest_entry["direction"].lower()
         if direction == "up":
             arrow = "⬆️"
@@ -146,9 +148,9 @@ def app():
             color = "black"
             direction_text = "No change"
         st.sidebar.markdown(f"""
-        <div style="text-align:center;">
-            <h1 style="font-size:3rem;">Price Prediction: {price_pred}</h1>
-            <h2 style="font-size:2rem; color:{color};">Direction: {arrow} {direction_text}</h2>
+        <div style="text-align:center; padding: 20px; border: 2px solid {color}; border-radius: 10px; background-color: #f9f9f9;">
+            <h1 style="font-size:3rem; margin: 0;">{price_pred}</h1>
+            <h2 style="font-size:2rem; margin: 0; color:{color};">Direction: {arrow} {direction_text}</h2>
         </div>
         """, unsafe_allow_html=True)
 
