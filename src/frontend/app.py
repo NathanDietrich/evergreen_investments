@@ -44,7 +44,7 @@ def load_data():
         
         # Sort objects by LastModified descending and get the latest one
         latest_object = sorted(objects, key=lambda obj: obj["LastModified"], reverse=True)[0]
-        # (We no longer display the S3 filename to the user)
+        # (Do not display the S3 file name to end users)
         
         # Download the file from S3 into memory
         obj = s3.get_object(Bucket=bucket_name, Key=latest_object["Key"])
@@ -101,14 +101,13 @@ def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"
 
 def display_trade_confirmation(trade_details):
     """
-    Displays a friendly, pretty order confirmation message for a trade.
+    Displays a friendly confirmation message for a trade.
     
     Parameters:
         trade_details (dict): A dictionary containing trade information.
     """
     st.success("Order Confirmed!")
     
-    # Extract only the fields we want to show.
     symbol = trade_details.get("symbol", "N/A")
     order_type = trade_details.get("order_type", "N/A")
     side = trade_details.get("side", "N/A")
@@ -117,20 +116,19 @@ def display_trade_confirmation(trade_details):
     created_at = trade_details.get("created_at", "N/A")
     expires_at = trade_details.get("expires_at", "N/A")
     
-    # Display a formatted, pretty message using HTML
-    html_content = f"""
-    <div style="border: 2px solid #4CAF50; padding: 20px; border-radius: 8px; background-color: #F9FFF9;">
-        <h2 style="color: #4CAF50; margin-top: 0;">Order Confirmed!</h2>
-        <p><strong>Symbol:</strong> {symbol}</p>
-        <p><strong>Order Type:</strong> {order_type.capitalize()}</p>
-        <p><strong>Side:</strong> {side.capitalize()}</p>
-        <p><strong>Quantity:</strong> {qty}</p>
-        <p><strong>Status:</strong> {status.capitalize()}</p>
-        <p><strong>Created At:</strong> {created_at}</p>
-        <p><strong>Expires At:</strong> {expires_at}</p>
-    </div>
-    """
-    st.markdown(html_content, unsafe_allow_html=True)
+    st.markdown(f"""
+    **Trade Confirmation Details:**
+
+    - **Symbol:** {symbol}
+    - **Order Type:** {order_type.capitalize()}
+    - **Side:** {side.capitalize()}
+    - **Quantity:** {qty}
+    - **Status:** {status.capitalize()}
+    - **Created At:** {created_at}
+    - **Expires At:** {expires_at}
+
+    Thank you for your trade!
+    """)
 
 def app():
     st.set_page_config(page_title="Evergreen Investments Dashboard", layout="wide")
