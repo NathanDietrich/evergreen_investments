@@ -14,3 +14,4 @@ alpaca-trade-api
 websockets>=13.0,<15.0
 keras-tuner==1.4.7
 matplotlib==3.8.3
+boto3
