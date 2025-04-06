@@ -6,17 +6,18 @@ import boto3
 import pandas as pd
 import datetime
 
-
-# Create your Modal secrets from AWS credentials:
+# Initialize a Modal secret using your AWS credentials.
+# Run the following command in your terminal to create the secret:
 # modal secret create evergreen-secrets AWS_ACCESS_KEY_ID=xxx AWS_SECRET_ACCESS_KEY=yyy AWS_DEFAULT_REGION=us-east-1
 
-# We'll attach that secret to our app
+# Retrieve the previously created secret for secure access.
 secret = modal.Secret.from_name("evergreen-secrets")
 
-# Create your Modal App with the secret
+# Initialize the Modal App and attach the retrieved secret.
 app = modal.App("evergreen-fastapi-backend", secrets=[secret])
 
-# Build your image with dependencies (including boto3) and mount local code
+# Build a container image that includes all necessary dependencies,
+# and mount local directories to the specified remote paths.
 image = (
     modal.Image.debian_slim()
     .pip_install(
@@ -43,17 +44,17 @@ image = (
     .add_local_dir("models", remote_path="/root/models")
 )
 
-# We can add /root/src to sys.path so your daily_prediction module is discoverable
+# Append the remote source directory to sys.path so that the daily_prediction module can be imported.
 sys.path.append("/root/src")
 
-# A helper function to upload your daily_predictions_log.csv to S3
+# Function to update the daily predictions log on S3.
 def update_predictions_log_on_s3(bucket_name: str):
     """
-    Downloads the newest daily_predictions_log CSV from S3,
-    checks if today's prediction exists,
-    if not, it appends today's prediction (from the local log) and uploads the updated file.
+    Downloads the most recent daily_predictions_log CSV from S3,
+    checks whether today's predictions are already recorded,
+    and if not, appends today's predictions from the local log, then uploads the new file.
     """
-    # Set up S3 client using environment variables.
+    # Create an S3 client using credentials from the environment.
     s3 = boto3.client(
         "s3",
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -65,76 +66,76 @@ def update_predictions_log_on_s3(bucket_name: str):
     response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
     objects = response.get("Contents", [])
     
-    # Define local temporary file path
+    # Temporary local file to store the downloaded CSV.
     tmp_local_path = "/tmp/daily_predictions_log.csv"
     
     if objects:
-        # Find the newest file by LastModified
+        # Sort files by LastModified and select the most recent one.
         latest_object = sorted(objects, key=lambda obj: obj["LastModified"], reverse=True)[0]
         latest_key = latest_object["Key"]
-        print(f"Found latest S3 log file: {latest_key}")
-        # Download the file from S3
+        print(f"Latest S3 log file detected: {latest_key}")
+        # Download the most recent log file from S3.
         s3.download_file(bucket_name, latest_key, tmp_local_path)
         df_s3 = pd.read_csv(tmp_local_path)
     else:
-        # If no file exists in S3, create an empty DataFrame with expected columns.
-        print("No existing log file found in S3. Creating a new log DataFrame.")
+        # If no log file exists, initialize a new DataFrame with the expected columns.
+        print("No existing S3 log file found. Initializing a new DataFrame for logs.")
         df_s3 = pd.DataFrame(columns=[
             "timestamp", "ticker", "predicted_close", "direction",
             "sentiment_polarity", "sentiment_subjectivity", "historical_close"
         ])
     
-    # Get today's date string (ISO format) using only the date part.
+    # Get today's date in ISO format (YYYY-MM-DD).
     today_date_str = datetime.datetime.now().date().isoformat()
     
-    # Check if today's prediction is already present.
+    # If today's prediction is already logged, no update is necessary.
     if not df_s3[df_s3["timestamp"] == today_date_str].empty:
-        print("Today's prediction already exists in the S3 log. No update needed.")
+        print("Today's predictions are already present in the S3 log. Skipping update.")
         return
     
-    # Otherwise, run the daily prediction pipeline for today.
-    print("Today's prediction not found. Running daily prediction pipeline...")
+    # Run the daily prediction pipeline because today's data is missing.
+    print("No entry for today's predictions found. Executing the daily prediction pipeline...")
     from backend.daily_prediction import predict_next_close
     tickers = sorted(["AAPL", "AMZN", "MSFT", "SPY", "QQQ"])
     for ticker in tickers:
         result = predict_next_close(ticker, override_end_date=today_date_str)
         print(f"Prediction for {ticker}: {result}")
     
-    # Read the local log file where today's predictions were appended.
+    # Read the local log that contains today's predictions.
     local_log_path = "/root/src/backend/data/daily_predictions_log.csv"
     if not os.path.exists(local_log_path):
         print("Local daily_predictions_log.csv not found. Aborting update.")
         return
     
     df_local = pd.read_csv(local_log_path)
-    # Filter for rows with today's timestamp.
+    # Select only the entries corresponding to today's date.
     df_today = df_local[df_local["timestamp"] == today_date_str]
     if df_today.empty:
-        print("No new predictions logged locally for today. Aborting update.")
+        print("No new predictions found locally for today. Aborting update.")
         return
     
-    # Append today's predictions to the S3 DataFrame.
+    # Merge today's predictions with the existing S3 log.
     updated_df = pd.concat([df_s3, df_today], ignore_index=True)
-    # Optional: sort by timestamp.
+    # Convert the timestamp column to datetime and sort the DataFrame.
     updated_df["timestamp"] = pd.to_datetime(updated_df["timestamp"])
     updated_df.sort_values("timestamp", inplace=True)
     
-    # Save the updated log to a temporary file.
+    # Save the updated DataFrame to a temporary file.
     updated_local_path = "/tmp/daily_predictions_log_updated.csv"
     updated_df.to_csv(updated_local_path, index=False)
     
-    # Upload the updated file to S3 with a new timestamped key.
+    # Create a new S3 key using the current timestamp and upload the updated log.
     now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     new_s3_key = f"daily_predictions_log_{now_str}.csv"
     s3.upload_file(updated_local_path, bucket_name, new_s3_key)
-    print(f"Uploaded updated log to s3://{bucket_name}/{new_s3_key}")
+    print(f"Updated log successfully uploaded to s3://{bucket_name}/{new_s3_key}")
     
-# This function runs your daily prediction pipeline once.
+# Function that executes the daily prediction process.
 @app.function(image=image, timeout=1600)
 def run_daily_prediction():
     """
-    1) Runs predictions for each ticker
-    2) After predictions are logged, calls upload_predictions_log_to_s3
+    1) Executes predictions for a predefined list of tickers.
+    2) Once predictions are recorded locally, updates the S3 log.
     """
     from backend.daily_prediction import predict_next_close
     tickers = sorted(["AAPL", "AMZN", "MSFT", "SPY", "QQQ"])
@@ -142,20 +143,19 @@ def run_daily_prediction():
         result = predict_next_close(ticker)
         print(f"Prediction for {ticker}: {result}")
     
-    # After finishing predictions, upload the log to S3
-    # Replace with your actual bucket name
+    # After completing predictions, update the log on S3.
     update_predictions_log_on_s3(bucket_name="evergreen-investments-daily-predictions-log")
 
-# Schedule the daily prediction pipeline to run every day at 9:00 AM UTC.
+# Schedule the prediction pipeline to run daily at 9:00 AM UTC.
 @app.function(image=image, timeout=900, schedule=modal.Cron("5 4 * * *"))
 def scheduled_daily_prediction():
     """
-    Same as run_daily_prediction, but scheduled.
+    Triggers the daily prediction process automatically on a set schedule.
     """
     run_daily_prediction.remote()
 
-# Local entrypoint to trigger the function manually
+# Define a local entry point to manually trigger the prediction pipeline.
 @app.local_entrypoint()
 def main():
-    print("Running daily prediction pipeline once, then uploading to S3...")
+    print("Manually triggering the daily prediction pipeline and subsequent S3 update...")
     run_daily_prediction.remote()
