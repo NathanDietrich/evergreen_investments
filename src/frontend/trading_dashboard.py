@@ -51,8 +51,6 @@ def trading_dashboard():
             st.error(result["error"])
         else:
             st.success(f"Your {side} order for {quantity} shares of {ticker.upper()} has been placed successfully!")
-            order_id = result.get("id", "N/A")
-            st.info(f"Order ID: {order_id}")
 
 if __name__ == "__main__":
     trading_dashboard()
