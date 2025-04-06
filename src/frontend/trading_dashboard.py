@@ -36,22 +36,23 @@ def place_paper_trade(ticker: str, side: str = "buy", quantity: int = 1):
         return {"error": f"Error placing order. Status: {response.status_code}, {response.text}"}
 
 def trading_dashboard():
-    st.subheader("Trading Dashboard")
-    st.markdown("Place a paper trade via Alpaca:")
-    
+    st.title("Trading Dashboard")
+    st.write("Place a paper trade via Alpaca.")
+
     with st.form(key="trade_form"):
-        trade_ticker = st.text_input("Ticker", value="AAPL")
-        trade_side = st.selectbox("Side", ["buy", "sell"])
-        trade_quantity = st.number_input("Quantity", min_value=1, value=1, step=1)
-        submit_trade = st.form_submit_button(label="Place Order")
+        ticker = st.text_input("Ticker", value="AAPL")
+        side = st.selectbox("Side", options=["buy", "sell"])
+        quantity = st.number_input("Quantity", min_value=1, value=1, step=1)
+        submit_button = st.form_submit_button("Place Order")
     
-    if submit_trade:
-        trade_result = place_paper_trade(trade_ticker, trade_side, trade_quantity)
-        if "error" not in trade_result:
-            # Display a friendly confirmation message on success.
-            st.success(f"Your {trade_side} order for {trade_quantity} shares of {trade_ticker.upper()} has been successfully placed!")
+    if submit_button:
+        result = place_paper_trade(ticker, side, quantity)
+        if "error" in result:
+            st.error(result["error"])
         else:
-            st.error(f"Order error: {trade_result['error']}")
+            st.success(f"Your {side} order for {quantity} shares of {ticker.upper()} has been placed successfully!")
+            order_id = result.get("id", "N/A")
+            st.info(f"Order ID: {order_id}")
 
 if __name__ == "__main__":
     trading_dashboard()
