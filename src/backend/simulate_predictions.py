@@ -1,3 +1,10 @@
+"""
+This module simulates daily predictions for the last 30 days for a set of stock tickers.
+It is used to validate the prediction pipeline using pre-fetched data (covering 150 days) and 
+to generate daily predictions over a recent period. This simulation is useful for testing,
+performance monitoring, and backtesting the model's predictions without repeatedly fetching data.
+"""
+
 import datetime
 from .daily_prediction import (
     prepare_data_once,
@@ -7,18 +14,19 @@ from .daily_prediction import (
 def simulate_last_30_days():
     tickers = ["AAPL", "AMZN", "MSFT", "QQQ", "SPY"]
     
+    # Set the simulation window to the last 30 days (ending yesterday)
     end_sim_date = datetime.date.today() - datetime.timedelta(days=1)
     start_sim_date = end_sim_date - datetime.timedelta(days=29)
 
     for ticker in tickers:
         print(f"\n=== Fetching a single dataset (150 days) for {ticker} ===")
-        # Fetch and merge stock+sentiment once for 150 days
+        # Fetch and merge stock+sentiment data once for 150 days.
         df_prefetch = prepare_data_once(ticker, total_days=150)
         if df_prefetch is None or df_prefetch.empty:
             print(f"No data fetched for {ticker}. Skipping...")
             continue
         
-        # Now simulate each day using the pre-fetched data
+        # Simulate daily predictions for each day in the 30-day period using the pre-fetched data.
         current_date = start_sim_date
         while current_date <= end_sim_date:
             print(f"\nSimulating {ticker} on {current_date} ...")
