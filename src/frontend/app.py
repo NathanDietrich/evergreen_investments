@@ -118,41 +118,38 @@ def app():
     latest_date = df['timestamp'].max().date()
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
 
-    # Sidebar: User enters stock ticker (case-insensitive)
-    available_stocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+    # Sidebar: User enters stock ticker (input is case-insensitive)
     user_input = st.sidebar.text_input("Enter Stock Ticker", value="AAPL")
     selected_stock = user_input.upper()
     
-    if selected_stock not in available_stocks:
-        st.sidebar.error(f"Ticker not available. Please enter one of: {', '.join(available_stocks)}")
-        st.stop()
-
     # Filter and sort data for the selected stock (using case-insensitive matching)
     df_stock = df[df["ticker"].str.upper() == selected_stock].copy().sort_values("timestamp")
-    
+    if df_stock.empty:
+        st.warning(f"No data found for ticker {selected_stock}. Please try another ticker.")
+        st.stop()
+
     # Sidebar custom up/down indicator with enlarged display
-    if not df_stock.empty:
-        latest_entry = df_stock.iloc[-1]
-        price_pred = f"{latest_entry['predicted_close']:.2f}"
-        direction = latest_entry["direction"].lower()
-        if direction == "up":
-            arrow = "⬆️"
-            color = "green"
-            direction_text = "Up"
-        elif direction == "down":
-            arrow = "⬇️"
-            color = "red"
-            direction_text = "Down"
-        else:
-            arrow = ""
-            color = "black"
-            direction_text = "No change"
-        st.sidebar.markdown(f"""
-        <div style="text-align:center;">
-            <h1 style="font-size:3rem;">Price Prediction: {price_pred}</h1>
-            <h2 style="font-size:2rem; color:{color};">Direction: {arrow} {direction_text}</h2>
-        </div>
-        """, unsafe_allow_html=True)
+    latest_entry = df_stock.iloc[-1]
+    price_pred = f"{latest_entry['predicted_close']:.2f}"
+    direction = latest_entry["direction"].lower()
+    if direction == "up":
+        arrow = "⬆️"
+        color = "green"
+        direction_text = "Up"
+    elif direction == "down":
+        arrow = "⬇️"
+        color = "red"
+        direction_text = "Down"
+    else:
+        arrow = ""
+        color = "black"
+        direction_text = "No change"
+    st.sidebar.markdown(f"""
+    <div style="text-align:center;">
+        <h1 style="font-size:3rem;">Price Prediction: {price_pred}</h1>
+        <h2 style="font-size:2rem; color:{color};">Direction: {arrow} {direction_text}</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Rename columns for readability in charts/tables
     df_stock.rename(columns={
