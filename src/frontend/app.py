@@ -39,14 +39,14 @@ def load_data():
         objects = response.get("Contents", [])
         
         if not objects:
-            st.warning("No prediction logs found in S3.")
             return pd.DataFrame()
         
         # Sort objects by LastModified descending and get the latest one
         latest_object = sorted(objects, key=lambda obj: obj["LastModified"], reverse=True)[0]
+        latest_key = latest_object["Key"]
         
         # Download the file from S3 into memory
-        obj = s3.get_object(Bucket=bucket_name, Key=latest_object["Key"])
+        obj = s3.get_object(Bucket=bucket_name, Key=latest_key)
         df = pd.read_csv(io.BytesIO(obj['Body'].read()))
         
         # Parse the timestamp column
@@ -54,7 +54,7 @@ def load_data():
         return df
         
     except Exception as e:
-        st.error("Error loading CSV data from S3.")
+        st.error(f"Error loading CSV data from S3: {e}")
         return pd.DataFrame()
 
 def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"):
@@ -98,31 +98,9 @@ def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"
     ax.set_title(f"{ticker} - Predicted vs Actual")
     return fig
 
-def display_trade_confirmation(trade_details):
-    """
-    Displays a short, cute text blurb about the trade:
-    - Ticker
-    - Buy or Sell
-    - Quantity
-    - Confirmed or Denied
-    """
-    symbol = trade_details.get("symbol", "N/A")
-    side = trade_details.get("side", "N/A")
-    qty = trade_details.get("qty", "N/A")
-    status = trade_details.get("status", "N/A")
-
-    # Consider 'filled' or 'confirmed' as a successful trade
-    if status.lower() in ["filled", "confirmed"]:
-        st.success(f"Trade Confirmed! You just placed a {side.upper()} order for {qty} shares of {symbol}.")
-    else:
-        st.error(f"Trade {status.capitalize()}! Your order to {side.upper()} {qty} shares of {symbol} was not approved.")
-
 def app():
     st.set_page_config(page_title="Evergreen Investments Dashboard", layout="wide")
     st.title("Evergreen Investments - Daily Stock Predictions Dashboard")
-    
-    # Inform the user that data updates daily
-    st.markdown("_Data updates daily after market close._")
 
     # Disclaimer section
     st.markdown("""
@@ -134,8 +112,7 @@ def app():
 
     df = load_data()
     if df.empty:
-        st.warning("No prediction data available yet. Run the backend to generate predictions.")
-        return
+        st.stop()  # Stop execution without printing any extra messages
 
     # Display a note with the latest prediction data date
     latest_date = df['timestamp'].max().date()
@@ -148,10 +125,10 @@ def app():
     # Filter and sort data for the selected stock
     df_stock = df[df["ticker"] == selected_stock].copy().sort_values("timestamp")
     
-    # Sidebar custom up/down indicator with enhanced styling
+    # Sidebar custom up/down indicator with enlarged display
     if not df_stock.empty:
         latest_entry = df_stock.iloc[-1]
-        price_pred = f"${latest_entry['predicted_close']:.2f}"
+        price_pred = f"{latest_entry['predicted_close']:.2f}"
         direction = latest_entry["direction"].lower()
         if direction == "up":
             arrow = "⬆️"
@@ -165,12 +142,10 @@ def app():
             arrow = ""
             color = "black"
             direction_text = "No change"
-
-        # -- FIXED: ensure price text is visible --
         st.sidebar.markdown(f"""
-        <div style="text-align:center; padding: 20px; border: 2px solid {color}; border-radius: 10px; background-color: #f9f9f9;">
-            <h1 style="font-size:3rem; margin: 0; color: black;">{price_pred}</h1>
-            <h2 style="font-size:2rem; margin: 0; color:{color};">Direction: {arrow} {direction_text}</h2>
+        <div style="text-align:center;">
+            <h1 style="font-size:3rem;">Price Prediction: {price_pred}</h1>
+            <h2 style="font-size:2rem; color:{color};">Direction: {arrow} {direction_text}</h2>
         </div>
         """, unsafe_allow_html=True)
 
@@ -194,9 +169,7 @@ def app():
     # Tab 1: Custom Matplotlib Chart with actual dates on x-axis
     with tab1:
         st.subheader("Predicted vs Actual")
-        if len(df_stock) < 2:
-            st.info("Not enough data points for the chart.")
-        else:
+        if len(df_stock) >= 2:
             dates = df_stock['timestamp'].dt.date.values
             actual_prices = df_stock["Actual"].values
             predicted_prices = df_stock["Predicted"].values
@@ -232,15 +205,9 @@ def app():
         st.subheader("Latest Predictions Data")
         st.dataframe(df_stock.sort_values("timestamp", ascending=False).head(20))
 
-    # Tab 5: Trading Dashboard and Trade Confirmation
+    # Tab 5: Trading Dashboard
     with tab5:
-        st.subheader("Trading Dashboard")
-        # Assume trading_dashboard() returns a dictionary of trade details when a trade is executed.
-        trade_details = trading_dashboard()
-        if trade_details:
-            display_trade_confirmation(trade_details)
-        else:
-            st.info("No trades executed yet.")
+        trading_dashboard()
 
 if __name__ == "__main__":
     app()
