@@ -118,9 +118,9 @@ def app():
     latest_date = df['timestamp'].max().date()
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
 
-    # Sidebar: Select stock
-    tickers = sorted(df["ticker"].unique())
-    selected_stock = st.sidebar.selectbox("Select Stock", tickers)
+    # Sidebar: Select stock (limited to 5 available stocks)
+    available_stocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+    selected_stock = st.sidebar.selectbox("Select Stock", available_stocks)
 
     # Filter and sort data for the selected stock
     df_stock = df[df["ticker"] == selected_stock].copy().sort_values("timestamp")
