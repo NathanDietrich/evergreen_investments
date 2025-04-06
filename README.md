@@ -51,7 +51,7 @@
 
 2. **Modal Integration & Older Versions**  
    - **Issue:** Modal version mismatches (e.g., `0.73.x` vs. newer) led to environment conflicts and `asgi_app` errors.  
-   - **Solution:** Updated the code to use the new Modal API (`@stub.function`, `@modal.asgi_app`) and pinned Python dependencies to maintain environment consistency.
+   - **Solution:** Updated the code to use the new Modal API and pinned Python dependencies to maintain environment consistency.
 
 3. **Sentiment Data Alignment**  
    - **Issue:** Time lags between stock data and news data resulted in merging inaccuracies.  
@@ -84,9 +84,8 @@
 
 1. **Modal**  
    - Orchestrates a daily job (cron task) to fetch data, run predictions, and save logs.
-   - The scheduled tasks are defined in a dedicated backend script (e.g., `modal_backend.py`).  
-   - **Note:** The `main.py` file is used for the FastAPI application, which is primarily for local testing and serving the UI; it is not used for the Modal-scheduled tasks.
-
+   - **Note:** The scheduled tasks are handled by `modal_backend.py`, while `main.py` is used for local FastAPI/Streamlit deployment.
+   
 2. **AWS S3**  
    - Receives CSV outputs from daily runs (e.g., `predictions_YYYYMMDD.csv`).
    - These logs are accessed by the Streamlit app for visualization.
@@ -105,14 +104,14 @@
   - Runs the FastAPI server for local API interactions and user interface testing.
 - **Setup:**
   - **Environment:**  
-    - Create a `.env` file with necessary credentials and ensure it’s added to `.gitignore`.
+    - Create a `.env` file with necessary credentials and add it to `.gitignore`.
     - Install dependencies from `requirements.txt`.
   - **Running the App:**  
-    - Use the provided `main.py` (designed for FastAPI) with:
+    - Use `main.py` (designed for FastAPI) to run the server locally:
       ```bash
       uvicorn main:app --reload
       ```
-    - This launches your FastAPI server locally. Remember, `main.py` is not used in production for scheduled tasks.
+    - This launches your local server for development purposes.
 
 ### Modal Deployment
 - **Purpose:**  
@@ -128,29 +127,38 @@
       ```bash
       modal login
       ```
-  - **Environment Variables:**  
-    - Prepare a `.env` file with required credentials (e.g., API keys) and ensure it is kept out of version control.
-  - **Deploying Scheduled Tasks:**
-    - Use a dedicated backend script (e.g., `modal_backend.py`) that contains your scheduled functions. For example:
-      ```python
-      import modal
-
-      stub = modal.Stub("evergreen-prediction")
-
-      @stub.function(schedule=modal.Cron("0 9 * * *"))
-      def scheduled_daily_prediction():
-          # Backend task: data fetching, prediction, log upload
-          print("Running daily prediction...")
+  - **Environment Variables & Secrets:**  
+    - Create a local `.env` file with required credentials (e.g., API keys).
+    - Set up your Modal secret for AWS credentials. For example:
+      ```bash
+      modal secret create evergreen-secrets AWS_ACCESS_KEY_ID=xxx AWS_SECRET_ACCESS_KEY=yyy AWS_DEFAULT_REGION=us-east-1
       ```
-    - Test locally in the Modal environment:
+  - **Backend Script:**  
+    - Your `modal_backend.py` defines the Modal app, builds a custom image with dependencies, and schedules your daily prediction tasks. Key points:
+      - It creates an app with:
+        ```python
+        app = modal.App("evergreen-fastapi-backend", secrets=[secret])
+        ```
+      - It builds an image that installs required packages and mounts local directories.
+      - It defines a scheduled function using:
+        ```python
+        @app.function(image=image, timeout=900, schedule=modal.Cron("5 4 * * *"))
+        def scheduled_daily_prediction():
+            run_daily_prediction.remote()
+        ```
+      - It includes a local entrypoint (`main()`) for manual testing.
+  - **Testing Locally in Modal Environment:**
+    - Run the backend script locally to verify functionality:
       ```bash
       modal run modal_backend.py
       ```
-    - Deploy the scheduled task with:
+    - This triggers the local entrypoint and runs the prediction pipeline.
+  - **Deploying to Modal:**
+    - Once verified, deploy your scheduled tasks with:
       ```bash
       modal deploy modal_backend.py
       ```
-    - Monitor and verify your deployment via the Modal dashboard and logs.
+    - Verify your schedule and logs via the Modal dashboard.
 
 ---
 
@@ -171,57 +179,6 @@
 4. **Troubleshooting Environment Mismatches:**  
    - Use `python --version` to verify the environment.
    - If needed, include a `packages.txt` for additional system-level dependencies.
-
----
-
-## 🚀 Deploying on Modal
-
-Below is a brief guide on how to deploy the backend code (dedicated to daily scheduling) on Modal:
-
-1. **Set Up Your Modal Account and Install the Client:**
-   - **Create an Account:**  
-     Sign up at [modal.com](https://modal.com) if you haven't already.
-   - **Install the Modal Python Package:**
-     ```bash
-     pip install modal
-     ```
-   - **Authenticate Your Client:**
-     ```bash
-     modal login
-     ```
-
-2. **Prepare Your Environment Variables:**
-   - Create a local `.env` file with necessary credentials (e.g., API keys).
-   - Example:
-     ```bash
-     POLYGON_KEY=your_polygon_api_key
-     OTHER_SECRET=your_other_secret
-     ```
-   - **Security Note:**  
-     Ensure your `.env` file is listed in `.gitignore` to prevent sensitive data from being committed.
-
-3. **Review Your Backend Script (e.g., `modal_backend.py`):**
-   - Confirm that the script uses environment variable secrets (e.g., via `modal.Secret.from_dotenv()`).
-   - Ensure your scheduled function is configured correctly:
-     ```python
-     @stub.function(schedule=modal.Cron("0 9 * * *"))
-     def scheduled_daily_prediction():
-         # Your daily task code here
-         print("Running daily prediction...")
-     ```
-
-4. **Test Locally in Modal Environment:**
-   - Run the script locally to ensure functionality:
-     ```bash
-     modal run modal_backend.py
-     ```
-
-5. **Deploy the Scheduled Task:**
-   - Once verified, deploy the backend with:
-     ```bash
-     modal deploy modal_backend.py
-     ```
-   - Verify your schedule and logs via the Modal dashboard.
 
 ---
 
