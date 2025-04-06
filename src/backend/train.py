@@ -244,7 +244,7 @@ def main():
         # Save the model with .keras extension
         best_model_path = os.path.join(model_folder, f"{ticker}_best_model.keras")
         model.save(best_model_path)
-        print(f"✅ Best Ensemble Model for {ticker} saved to {best_model_path}")
+        print(f"Best Ensemble Model for {ticker} saved to {best_model_path}")
         
         # Plot training history
         plt.figure(figsize=(12, 6))
@@ -257,7 +257,7 @@ def main():
         history_plot_path = os.path.join(model_folder, "training_history.png")
         plt.savefig(history_plot_path)
         plt.close()
-        print(f"✅ Training history graph saved to {history_plot_path}")
+        print(f"Training history graph saved to {history_plot_path}")
         
         # Evaluate model on test set
         loss, mae = model.evaluate(X_test, y_test, verbose=0)
@@ -293,7 +293,7 @@ def main():
         plot_path = os.path.join(model_folder, "pred_vs_actual_inverscaled.png")
         plt.savefig(plot_path)
         plt.close()
-        print(f"✅ Inverse-scaled prediction vs actual plot saved to {plot_path}")
+        print(f"Inverse-scaled prediction vs actual plot saved to {plot_path}")
         
         # Save additional performance stats to file
         stats_path = os.path.join(model_folder, "model_performance.txt")
@@ -303,8 +303,8 @@ def main():
             f.write(f"Directional Accuracy: {directional_accuracy:.2f}%\n")
             f.write(f"Tuning Time (sec): {tuning_time:.2f}\n")
             f.write(f"Training Time (sec): {training_time:.2f}\n")
-        print(f"✅ Performance stats saved to {stats_path}")
-        print(f"🎉 Re-training and hyperparameter search complete for {ticker}!\n")
+        print(f"Performance stats saved to {stats_path}")
+        print(f"Re-training and hyperparameter search complete for {ticker}!\n")
 
 if __name__ == "__main__":
     main()
