@@ -118,12 +118,17 @@ def app():
     latest_date = df['timestamp'].max().date()
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
 
-    # Sidebar: Select stock (limited to 5 available stocks)
+    # Sidebar: User enters stock ticker (case-insensitive)
     available_stocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
-    selected_stock = st.sidebar.selectbox("Select Stock", available_stocks)
+    user_input = st.sidebar.text_input("Enter Stock Ticker", value="AAPL")
+    selected_stock = user_input.upper()
+    
+    if selected_stock not in available_stocks:
+        st.sidebar.error(f"Ticker not available. Please enter one of: {', '.join(available_stocks)}")
+        st.stop()
 
-    # Filter and sort data for the selected stock
-    df_stock = df[df["ticker"] == selected_stock].copy().sort_values("timestamp")
+    # Filter and sort data for the selected stock (using case-insensitive matching)
+    df_stock = df[df["ticker"].str.upper() == selected_stock].copy().sort_values("timestamp")
     
     # Sidebar custom up/down indicator with enlarged display
     if not df_stock.empty:
