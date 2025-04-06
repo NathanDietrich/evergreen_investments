@@ -1,18 +1,18 @@
 import streamlit as st
-import os
 import requests
 import json
 
 def place_paper_trade(ticker: str, side: str = "buy", quantity: int = 1):
     """
     Places a market order for `quantity` shares of `ticker` on the Alpaca paper endpoint.
+    Uses credentials from Streamlit secrets.
     """
-    ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
-    ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
-    ALPACA_BASE_URL = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
-
-    if not ALPACA_API_KEY or not ALPACA_SECRET_KEY:
-        return {"error": "Alpaca credentials not set."}
+    try:
+        ALPACA_API_KEY = st.secrets["ALPACA_API_KEY"]
+        ALPACA_SECRET_KEY = st.secrets["ALPACA_SECRET_KEY"]
+        ALPACA_BASE_URL = st.secrets.get("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+    except Exception:
+        return {"error": "Alpaca credentials not set in Streamlit secrets."}
 
     headers = {
         "APCA-API-KEY-ID": ALPACA_API_KEY,
@@ -21,7 +21,7 @@ def place_paper_trade(ticker: str, side: str = "buy", quantity: int = 1):
     }
 
     order_data = {
-        "symbol": ticker,
+        "symbol": ticker.upper(),  # Ensure ticker is uppercase
         "qty": quantity,
         "side": side,
         "type": "market",
