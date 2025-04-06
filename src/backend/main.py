@@ -37,7 +37,7 @@ def create_app():
     from .daily_prediction import predict_next_close
 
     def run_daily_prediction():
-        # Define the list of stocks (alphabetically sorted)
+        # Define the list of stocks
         stocks = sorted(["AAPL", "AMZN", "MSFT", "SPY", "QQQ"])
         results = {}
         logger.info("Starting daily prediction for stocks: %s", stocks)
