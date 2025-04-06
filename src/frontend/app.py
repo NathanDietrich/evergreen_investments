@@ -141,7 +141,7 @@ def app():
     latest_date = df['timestamp'].max().date()
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
 
-    # Sidebar: Select stock for viewing predictions
+    # Sidebar: Select stock
     tickers = sorted(df["ticker"].unique())
     selected_stock = st.sidebar.selectbox("Select Stock", tickers)
 
@@ -165,6 +165,8 @@ def app():
             arrow = ""
             color = "black"
             direction_text = "No change"
+
+        # -- FIXED: ensure price text is visible --
         st.sidebar.markdown(f"""
         <div style="text-align:center; padding: 20px; border: 2px solid {color}; border-radius: 10px; background-color: #f9f9f9;">
             <h1 style="font-size:3rem; margin: 0; color: black;">{price_pred}</h1>
@@ -233,13 +235,12 @@ def app():
     # Tab 5: Trading Dashboard and Trade Confirmation
     with tab5:
         st.subheader("Trading Dashboard")
-        # Dropdown for selecting the stock to trade from a fixed list
-        available_stocks = ["AAPL", "AMZN", "MSFT", "QQQ", "SPY"]
-        selected_trade_stock = st.selectbox("Select Stock to Trade", available_stocks)
-        # Call trading_dashboard() with the selected stock (adjust trading_dashboard to accept an argument if needed)
-        trade_details = trading_dashboard(selected_trade_stock)
+        # Assume trading_dashboard() returns a dictionary of trade details when a trade is executed.
+        trade_details = trading_dashboard()
         if trade_details:
             display_trade_confirmation(trade_details)
+        else:
+            st.info("No trades executed yet.")
 
 if __name__ == "__main__":
     app()
