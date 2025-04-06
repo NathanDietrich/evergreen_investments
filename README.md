@@ -34,7 +34,7 @@
 ## 🧠 Model Development & Training
 
 - **Ensemble ML Approach**  
-  - Evaluated multiple algorithms (XGBoost, Random Forest, Neural Networks).  
+  - Evaluated multiple algorithms (LSTM, CNN, RNN, ARIMA).  
   - Employed ensemble blending to leverage each model’s strengths.
 
 - **Inverse Scaling & Softmax**  
@@ -84,7 +84,8 @@
 
 1. **Modal**  
    - Orchestrates a daily job (cron task) to fetch data, run predictions, and save logs.
-   - The pipeline is typically managed via a script (e.g., `modal_backend.py` or `main.py`).
+   - The scheduled tasks are defined in a dedicated backend script (e.g., `modal_backend.py`).  
+   - **Note:** The `main.py` file is used for the FastAPI application, which is primarily for local testing and serving the UI; it is not used for the Modal-scheduled tasks.
 
 2. **AWS S3**  
    - Receives CSV outputs from daily runs (e.g., `predictions_YYYYMMDD.csv`).
@@ -96,21 +97,78 @@
 
 ---
 
+## 🔧 Local Deployment vs. Modal Deployment
+
+### Local Deployment
+- **Purpose:**  
+  - Used for developing and testing the FastAPI application and UI locally.
+  - Runs the FastAPI server for local API interactions and user interface testing.
+- **Setup:**
+  - **Environment:**  
+    - Create a `.env` file with necessary credentials and ensure it’s added to `.gitignore`.
+    - Install dependencies from `requirements.txt`.
+  - **Running the App:**  
+    - Use the provided `main.py` (designed for FastAPI) with:
+      ```bash
+      uvicorn main:app --reload
+      ```
+    - This launches your FastAPI server locally. Remember, `main.py` is not used in production for scheduled tasks.
+
+### Modal Deployment
+- **Purpose:**  
+  - Used for running scheduled backend tasks (data fetching, predictions, log uploads) in a serverless environment.
+- **Setup:**
+  - **Modal Account Setup:**
+    - Create an account at [modal.com](https://modal.com) if you haven't already.
+    - Install the Modal client:
+      ```bash
+      pip install modal
+      ```
+    - Authenticate by running:
+      ```bash
+      modal login
+      ```
+  - **Environment Variables:**  
+    - Prepare a `.env` file with required credentials (e.g., API keys) and ensure it is kept out of version control.
+  - **Deploying Scheduled Tasks:**
+    - Use a dedicated backend script (e.g., `modal_backend.py`) that contains your scheduled functions. For example:
+      ```python
+      import modal
+
+      stub = modal.Stub("evergreen-prediction")
+
+      @stub.function(schedule=modal.Cron("0 9 * * *"))
+      def scheduled_daily_prediction():
+          # Backend task: data fetching, prediction, log upload
+          print("Running daily prediction...")
+      ```
+    - Test locally in the Modal environment:
+      ```bash
+      modal run modal_backend.py
+      ```
+    - Deploy the scheduled task with:
+      ```bash
+      modal deploy modal_backend.py
+      ```
+    - Monitor and verify your deployment via the Modal dashboard and logs.
+
+---
+
 ## 📚 Deploying on Streamlit Community Cloud
 
-1. **GitHub Repository Setup**  
+1. **GitHub Repository Setup:**  
    - Create a GitHub repository for your project.
 
-2. **Connecting to Streamlit Community Cloud**  
+2. **Connecting to Streamlit Community Cloud:**  
    - Connect your GitHub repository in Streamlit Community Cloud.
    - Specify **`src/frontend/app.py`** as the main entry point.
    - Provide a `requirements.txt` with pinned dependencies.
 
-3. **AWS S3 Integration**  
+3. **AWS S3 Integration:**  
    - Store AWS credentials securely as secrets in the Streamlit app settings.
    - Ensure AWS credentials are not committed in plain text.
 
-4. **Troubleshooting Environment Mismatches**  
+4. **Troubleshooting Environment Mismatches:**  
    - Use `python --version` to verify the environment.
    - If needed, include a `packages.txt` for additional system-level dependencies.
 
@@ -118,92 +176,84 @@
 
 ## 🚀 Deploying on Modal
 
-Below is a brief guide on how to deploy the backend code (such as the included `modal_backend.py` or `main.py` script) on Modal for daily scheduling:
+Below is a brief guide on how to deploy the backend code (dedicated to daily scheduling) on Modal:
 
-1. **Install Modal Locally**  
-   - Make sure you have an account at [modal.com](https://modal.com) (or wherever you manage Modal).  
-   - Install the Modal client locally:
+1. **Set Up Your Modal Account and Install the Client:**
+   - **Create an Account:**  
+     Sign up at [modal.com](https://modal.com) if you haven't already.
+   - **Install the Modal Python Package:**
      ```bash
-     pip install modal-client
+     pip install modal
      ```
-   - Authenticate via:
+   - **Authenticate Your Client:**
      ```bash
-     modal token new
+     modal login
      ```
-   - Follow the on-screen instructions to log in.
 
-2. **Prepare Your `.env` File**  
-   - If your code uses environment variables (API keys, etc.), create a local `.env` file.  
-   - Make sure it includes all necessary credentials and secrets.  
-   - Example `.env`:
-     ```bash
-     ALPACA_API_KEY=your_alpaca_key
-     ALPACA_API_SECRET=your_alpaca_secret
-     ```
-   - **Never commit your `.env` file to version control.**
-
-3. **Review the `modal_backend.py` (or `main.py`)**  
-   - Ensure your script has `modal.Secret.from_dotenv()` or similar if you need environment variables.  
-   - Make sure your `@app.function(..., schedule=modal.Cron(...))` is configured to the desired schedule.  
+2. **Prepare Your Environment Variables:**
+   - Create a local `.env` file with necessary credentials (e.g., API keys).
    - Example:
-     ```python
-     @app.function(schedule=modal.Cron("0 9 * * *"))
-     def scheduled_daily_prediction():
-         # ...
-     ```
-
-4. **Run Locally First**  
-   - Test your code locally:
      ```bash
-     modal run main.py
+     POLYGON_KEY=your_polygon_api_key
+     OTHER_SECRET=your_other_secret
      ```
-   - This runs your functions inside the Modal environment but triggers from your local machine.
+   - **Security Note:**  
+     Ensure your `.env` file is listed in `.gitignore` to prevent sensitive data from being committed.
 
-5. **Confirm the Scheduled Function**  
-   - Once confirmed, your scheduled function (`scheduled_daily_prediction` in the example) will run automatically at the specified time (e.g., 9:00 UTC daily).  
-   - Check your Modal dashboard to verify that the schedule is active and see logs.
+3. **Review Your Backend Script (e.g., `modal_backend.py`):**
+   - Confirm that the script uses environment variable secrets (e.g., via `modal.Secret.from_dotenv()`).
+   - Ensure your scheduled function is configured correctly:
+     ```python
+     @stub.function(schedule=modal.Cron("0 9 * * *"))
+     def scheduled_daily_prediction():
+         # Your daily task code here
+         print("Running daily prediction...")
+     ```
 
-6. **Production & Logs**  
-   - As your Modal tasks run daily, they will produce logs which you can either store in AWS S3 or read directly from Modal’s logs.  
-   - If configured to write CSV files to S3, confirm that the data is uploading correctly.
+4. **Test Locally in Modal Environment:**
+   - Run the script locally to ensure functionality:
+     ```bash
+     modal run modal_backend.py
+     ```
 
-By following these steps, you’ll have a fully automated daily prediction job running in Modal’s serverless containers. The pipeline will:
-- Fetch/prepare data daily
-- Run model predictions
-- Optionally log results to AWS S3
-- Expose logs for debugging and analysis
+5. **Deploy the Scheduled Task:**
+   - Once verified, deploy the backend with:
+     ```bash
+     modal deploy modal_backend.py
+     ```
+   - Verify your schedule and logs via the Modal dashboard.
 
 ---
 
 ## 🔮 Future Steps & Enhancements
 
-1. **Expanded Ticker Coverage**  
+1. **Expanded Ticker Coverage:**  
    - Increase coverage from a few tickers to a broader watchlist with sector diversity.
 
-2. **Alert & Notification Systems**  
+2. **Alert & Notification Systems:**  
    - Integrate Slack or email notifications for significant model updates or sentiment shifts.
 
-3. **Advanced ML Techniques**  
-   - Explore Transformers, or other advanced architectures for improved time-series predictions.
+3. **Advanced ML Techniques:**  
+   - Explore Transformers or other advanced architectures for improved time-series predictions.
 
-4. **Study Politicians Trades**  
-   - Use trade data of politicians to learn how to find the best ones, or just outright copy their trades.
+4. **Study Politicians' Trades:**  
+   - Analyze trade data to identify potential opportunities or mimic successful strategies.
 
 ---
 
 ## 🧠 Key Learnings & Insights
 
-- **Consistent Data Preprocessing is Crucial**  
+- **Consistent Data Preprocessing is Crucial:**  
   - Using a single scaler and robust feature engineering enhances model reliability.
   
-- **Cloud Deployment Requires Rigor**  
+- **Cloud Deployment Requires Rigor:**  
   - Proactively managing environment mismatches and API versioning issues can save debugging time.
   
-- **Ensemble ML & Softmax Integration**  
+- **Ensemble ML & Softmax Integration:**  
   - Combining different models with softmax outputs effectively bridges regression with probabilistic directional forecasting.
   
-- **Automation Strengthens Reliability**  
+- **Automation Strengthens Reliability:**  
   - A pipeline that integrates Modal for scheduling, AWS S3 for storage, and Streamlit for visualization is both robust and scalable.
   
-- **Iterative Problem Solving**  
+- **Iterative Problem Solving:**  
   - Overcoming challenges such as data alignment and environment issues reinforces the value of continuous learning and adaptation.
