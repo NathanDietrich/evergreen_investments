@@ -239,8 +239,7 @@ def app():
         trade_details = trading_dashboard()
         if trade_details:
             display_trade_confirmation(trade_details)
-        else:
-            st.info("No trades executed yet.")
+        # Note: The "No trades executed yet." message has been removed.
 
 if __name__ == "__main__":
     app()
