@@ -12,7 +12,7 @@ def place_paper_trade(ticker: str, side: str = "buy", quantity: int = 1):
     ALPACA_BASE_URL = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
 
     if not ALPACA_API_KEY or not ALPACA_SECRET_KEY:
-        return "Alpaca credentials not set."
+        return {"error": "Alpaca credentials not set."}
 
     headers = {
         "APCA-API-KEY-ID": ALPACA_API_KEY,
@@ -33,7 +33,7 @@ def place_paper_trade(ticker: str, side: str = "buy", quantity: int = 1):
     if response.status_code in [200, 201]:
         return response.json()
     else:
-        return f"Error placing order. Status: {response.status_code}, {response.text}"
+        return {"error": f"Error placing order. Status: {response.status_code}, {response.text}"}
 
 def trading_dashboard():
     st.subheader("Trading Dashboard")
@@ -47,8 +47,11 @@ def trading_dashboard():
     
     if submit_trade:
         trade_result = place_paper_trade(trade_ticker, trade_side, trade_quantity)
-        if isinstance(trade_result, dict):
-            st.success("Order placed successfully!")
-            st.json(trade_result)
+        if "error" not in trade_result:
+            # Display a friendly confirmation message on success.
+            st.success(f"Your {trade_side} order for {trade_quantity} shares of {trade_ticker.upper()} has been successfully placed!")
         else:
-            st.error(f"Order error: {trade_result}")
+            st.error(f"Order error: {trade_result['error']}")
+
+if __name__ == "__main__":
+    trading_dashboard()
