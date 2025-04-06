@@ -1,3 +1,10 @@
+"""
+This module implements the training pipeline for the ensemble model used in our forecasting system.
+It handles reading and processing raw data, scaling, sequence generation, hyperparameter tuning,
+model training, evaluation, and visualization of results. The ensemble model combines CNN, RNN,
+and LSTM branches using an adaptive fusion mechanism with a custom ExtractWeight layer.
+"""
+
 import os
 import glob
 import time
@@ -18,7 +25,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.regularizers import l2
 from matplotlib.lines import Line2D
 
-# Import custom modules using relative imports
+# Import custom modules using relative imports.
 from .bot.process_data import process_data
 from .bot.scale_data import create_and_save_scalers, invert_target_scaling
 from .bot.input_sequence import create_sequences
@@ -26,21 +33,26 @@ from .bot.input_sequence import create_sequences
 # ------------------------------
 # Custom Layer: ExtractWeight
 # ------------------------------
-# Define inline since no separate custom_layers module exists
+# This custom Keras layer extracts a specific weight from a tensor of branch weights.
+# It is defined inline because there is no separate custom_layers module.
 class ExtractWeight(tf.keras.layers.Layer):
     """
-    ExtractWeight is a custom layer that takes branch weights (shape: (batch_size, 3))
-    and returns a tensor of shape (batch_size, 1) corresponding to the specified index.
-    This replaces inline Lambda functions for better serialization.
+    A custom layer that extracts a specific weight value from branch weights.
+
+    The layer receives a tensor of shape (batch_size, 3) and extracts the value at the specified index,
+    returning it as a tensor of shape (batch_size, 1). This is used in the adaptive fusion mechanism
+    of the ensemble model.
     """
     def __init__(self, index, **kwargs):
         super().__init__(**kwargs)
         self.index = index
 
     def call(self, inputs):
+        # Extract the weight at the given index and reshape to (batch_size, 1).
         return tf.reshape(inputs[:, self.index], (-1, 1))
 
     def get_config(self):
+        # Include the 'index' parameter in the layer configuration for serialization.
         config = super().get_config()
         config.update({"index": self.index})
         return config
@@ -48,20 +60,24 @@ class ExtractWeight(tf.keras.layers.Layer):
 # ------------------------------
 # Local Paths Setup
 # ------------------------------
-BASE_DIR = os.getcwd()  # Project root (should be your backend folder)
-DATA_DIR = os.path.join(BASE_DIR, "data")             # Folder where raw CSV files are stored
-RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")            # Raw data folder
-PROCESSED_DIR = os.path.join(DATA_DIR, "processed")     # Folder to save processed CSV files
-MODEL_DIR = os.path.join(BASE_DIR, "models")            # Folder to save trained models
-SCALER_DIR = os.path.join(BASE_DIR, "scalers")          # Folder to save scaler objects
+# Define various directories used in the pipeline. These paths are based on the current working directory.
+BASE_DIR = os.getcwd()  # Root directory of the project (assumed to be the backend folder)
+DATA_DIR = os.path.join(BASE_DIR, "data")             # Directory where raw CSV files are stored
+RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")            # Folder for storing unprocessed raw data files
+PROCESSED_DIR = os.path.join(DATA_DIR, "processed")     # Folder to store processed data in CSV format
+MODEL_DIR = os.path.join(BASE_DIR, "models")            # Directory to save trained models
+SCALER_DIR = os.path.join(BASE_DIR, "scalers")          # Directory to save scaler objects used for normalization
 
 # ------------------------------
 # Build the Ensemble Model (using ExtractWeight)
 # ------------------------------
 def build_ensemble_model(hp, input_shape):
     """
-    Builds an ensemble model combining CNN, RNN, and LSTM branches with adaptive fusion.
-    Uses the custom ExtractWeight layer to extract branch-specific weights.
+    Constructs an ensemble model that combines CNN, RNN, and LSTM branches with adaptive fusion.
+    
+    The adaptive fusion is implemented using a softmax-activated Dense layer to obtain branch weights,
+    which are then applied to the outputs of the individual branches using the custom ExtractWeight layer.
+    
     Version: 2025-03-18
     """
     inputs = Input(shape=input_shape)
@@ -98,19 +114,22 @@ def build_ensemble_model(hp, input_shape):
     lstm = Dropout(hp.Choice('dropout_rate_lstm', [0.1, 0.2, 0.3]))(lstm)
 
     # --- Adaptive Fusion ---
+    # Concatenate the outputs of all branches and calculate branch-specific weights.
     combined = Concatenate()([cnn, rnn, lstm])
     weight_logits = Dense(3)(combined)
     branch_weights = Activation('softmax')(weight_logits)
 
-    # Extract branch weights using the custom ExtractWeight layer
+    # Extract weights for each branch using the custom ExtractWeight layer.
     cnn_weight = ExtractWeight(index=0)(branch_weights)
     rnn_weight = ExtractWeight(index=1)(branch_weights)
     lstm_weight = ExtractWeight(index=2)(branch_weights)
 
+    # Scale each branch output by its corresponding weight.
     cnn_scaled = Multiply()([cnn, cnn_weight])
     rnn_scaled = Multiply()([rnn, rnn_weight])
     lstm_scaled = Multiply()([lstm, lstm_weight])
 
+    # Merge the scaled branch outputs and pass them through further dense layers.
     merged = Concatenate()([cnn_scaled, rnn_scaled, lstm_scaled])
     merged = Dense(
         units=hp.Choice('dense_units', [50, 100, 150]),
@@ -120,6 +139,7 @@ def build_ensemble_model(hp, input_shape):
     merged = Dropout(hp.Choice('dropout_rate_dense', [0.1, 0.2, 0.3]))(merged)
     output = Dense(1)(merged)
 
+    # Compile the model with the Adam optimizer and MSE loss.
     model = tf.keras.models.Model(inputs, output)
     model.compile(
         optimizer=Adam(learning_rate=hp.Choice('learning_rate', [0.001, 0.0005, 0.0001])),
@@ -132,38 +152,38 @@ def build_ensemble_model(hp, input_shape):
 # Main Training Pipeline
 # ------------------------------
 def main():
-    # Look for raw CSV files ending with _raw.csv in the RAW_DATA_DIR.
+    # Search for raw CSV files that end with "_raw.csv" in the raw data directory.
     raw_files = glob.glob(os.path.join(RAW_DATA_DIR, "*_raw.csv"))
     if not raw_files:
         print("No raw CSV files found in the data/raw folder.")
         return
 
     for file in raw_files:
-        # Expect file name like "AAPL_2021-01-01_to_2025-03-20_raw.csv"
+        # Assume the file name format is "TICKER_YYYY-MM-DD_to_YYYY-MM-DD_raw.csv".
         filename = os.path.basename(file)
         parts = filename.split("_")
         ticker = parts[0]
         print(f"\n=== Processing raw data for {ticker} from file: {filename} ===")
         
-        # Load raw data
+        # Load the raw CSV data and sort it by the 'Date' column.
         raw_df = pd.read_csv(file, parse_dates=["Date"])
         raw_df.sort_values(by="Date", inplace=True)
         
-        # Process data (add technical indicators, drop Date column, etc.)
+        # Process the raw data (e.g., add technical indicators, remove the Date column, etc.).
         from .bot.process_data import process_data
         X, y = process_data(raw_df)
         
-        # Save processed data to the PROCESSED_DIR
+        # Save the processed data as a new CSV file in the processed data directory.
         os.makedirs(PROCESSED_DIR, exist_ok=True)
         processed_filepath = os.path.join(PROCESSED_DIR, f"{ticker}_processed.csv")
         X.to_csv(processed_filepath, index=False)
         print(f"Processed data saved to {processed_filepath}")
         
-        # Scale data and save scalers locally
+        # Scale the processed data and save the scaler objects.
         from .bot.scale_data import create_and_save_scalers
         df_scaled, scaler_features, scaler_target = create_and_save_scalers(X, ticker, scaler_dir=SCALER_DIR)
         
-        # Create training sequences – using "CloseTomorrow" as the label
+        # Create time-series sequences for training using the 'CloseTomorrow' column as the label.
         from .bot.input_sequence import create_sequences
         feature_cols = [
             'Open', 'High', 'Low', 'Close', 'Volume',
@@ -171,11 +191,10 @@ def main():
             'MACD', 'MACD_Signal', 'sentiment_polarity', 'sentiment_subjectivity'
         ]
         sequence_length = 60
-        # Change: use 'CloseTomorrow' as the label column (per Option B)
         X_seq, y_seq = create_sequences(df_scaled, feature_cols, label_col='CloseTomorrow', sequence_length=sequence_length)
         print(f"Sequences created for {ticker}: X shape {X_seq.shape}, y shape {y_seq.shape}")
         
-        # Split sequences into train, validation, test (70/15/15 split)
+        # Split the sequences into training, validation, and test sets (70/15/15 split).
         total = len(X_seq)
         train_end = int(total * 0.70)
         val_end = int(total * 0.85)
@@ -187,7 +206,7 @@ def main():
         input_shape = (X_train.shape[1], X_train.shape[2])
         print(f"Model input shape: {input_shape}")
         
-        # Create folder for saving model and tuning results
+        # Prepare directories for saving the trained model and tuning results.
         model_folder = os.path.join(MODEL_DIR, f"BestEnsembleModel_{ticker}")
         os.makedirs(model_folder, exist_ok=True)
         tuning_dir = os.path.join(model_folder, "tuning")
@@ -227,7 +246,7 @@ def main():
         print(f"Tuning time: {tuning_time:.2f} seconds")
         model = tuner.hypermodel.build(best_hps)
         
-        # Train final model and measure training time
+        # Train the final model and measure the training time.
         BATCH_SIZE = 32
         early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
         start_train = time.time()
@@ -241,12 +260,12 @@ def main():
         )
         training_time = time.time() - start_train
         
-        # Save the model with .keras extension
+        # Save the best model to disk with a .keras extension.
         best_model_path = os.path.join(model_folder, f"{ticker}_best_model.keras")
         model.save(best_model_path)
         print(f"Best Ensemble Model for {ticker} saved to {best_model_path}")
         
-        # Plot training history
+        # Plot and save the training history (loss curves).
         plt.figure(figsize=(12, 6))
         plt.plot(history.history['loss'], label='Train Loss', color='blue')
         plt.plot(history.history['val_loss'], label='Validation Loss', color='red')
@@ -259,16 +278,17 @@ def main():
         plt.close()
         print(f"Training history graph saved to {history_plot_path}")
         
-        # Evaluate model on test set
+        # Evaluate the model on the test set.
         loss, mae = model.evaluate(X_test, y_test, verbose=0)
         print(f"Test Loss: {loss:.4f}, Test MAE: {mae:.4f}")
         
+        # Generate predictions for the test set.
         predictions = model.predict(X_test)
-        # Invert scaling using the target scaler (applied to CloseTomorrow)
+        # Invert the scaling of predictions using the target scaler for 'CloseTomorrow'.
         predictions_rescaled = invert_target_scaling(predictions, ticker, scaler_dir=SCALER_DIR)
         y_test_rescaled = invert_target_scaling(y_test, ticker, scaler_dir=SCALER_DIR)
         
-        # Calculate directional accuracy
+        # Calculate the directional accuracy by comparing the trend of consecutive values.
         correct_direction = 0
         for i in range(len(y_test_rescaled) - 1):
             if (y_test_rescaled[i+1] - y_test_rescaled[i]) * (predictions_rescaled[i+1] - predictions_rescaled[i]) >= 0:
@@ -276,7 +296,7 @@ def main():
         directional_accuracy = (correct_direction / (len(y_test_rescaled) - 1)) * 100 if len(y_test_rescaled) > 1 else 0
         print(f"Directional Accuracy: {directional_accuracy:.2f}%")
         
-        # Plot predicted vs actual with directional colors
+        # Create and save a plot comparing the inverse-scaled predictions to the actual values.
         x_vals = np.arange(len(y_test_rescaled))
         plt.figure(figsize=(12, 6))
         plt.plot(x_vals, y_test_rescaled, label="Actual Price", color='blue')
@@ -295,7 +315,7 @@ def main():
         plt.close()
         print(f"Inverse-scaled prediction vs actual plot saved to {plot_path}")
         
-        # Save additional performance stats to file
+        # Save additional model performance statistics to a text file.
         stats_path = os.path.join(model_folder, "model_performance.txt")
         with open(stats_path, "w") as f:
             f.write(f"Test Loss: {loss:.4f}\n")
