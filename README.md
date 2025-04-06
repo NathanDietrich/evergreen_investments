@@ -23,7 +23,6 @@
 
 - **Data Sources**  
   - **Polygon** for historical market data and news data.  
-  
 
 - **Data Preprocessing**  
   - Handling missing values, detecting outliers, and aligning time-series data.
@@ -84,8 +83,8 @@
 ## ☁️ Cloud Workflow
 
 1. **Modal**  
-   - Orchestrates a daily job (or cron task) to fetch data, run predictions, and save logs.
-   - The pipeline is managed via `modal_backend.py` or an equivalent script.
+   - Orchestrates a daily job (cron task) to fetch data, run predictions, and save logs.
+   - The pipeline is typically managed via a script (e.g., `modal_backend.py` or `main.py`).
 
 2. **AWS S3**  
    - Receives CSV outputs from daily runs (e.g., `predictions_YYYYMMDD.csv`).
@@ -113,12 +112,71 @@
 
 4. **Troubleshooting Environment Mismatches**  
    - Use `python --version` to verify the environment.
-   - If needed, include a `packages.txt` for additional system dependencies.
+   - If needed, include a `packages.txt` for additional system-level dependencies.
+
+---
+
+## 🚀 Deploying on Modal
+
+Below is a brief guide on how to deploy the backend code (such as the included `modal_backend.py` or `main.py` script) on Modal for daily scheduling:
+
+1. **Install Modal Locally**  
+   - Make sure you have an account at [modal.com](https://modal.com) (or wherever you manage Modal).  
+   - Install the Modal client locally:
+     ```bash
+     pip install modal-client
+     ```
+   - Authenticate via:
+     ```bash
+     modal token new
+     ```
+   - Follow the on-screen instructions to log in.
+
+2. **Prepare Your `.env` File**  
+   - If your code uses environment variables (API keys, etc.), create a local `.env` file.  
+   - Make sure it includes all necessary credentials and secrets.  
+   - Example `.env`:
+     ```bash
+     ALPACA_API_KEY=your_alpaca_key
+     ALPACA_API_SECRET=your_alpaca_secret
+     ```
+   - **Never commit your `.env` file to version control.**
+
+3. **Review the `modal_backend.py` (or `main.py`)**  
+   - Ensure your script has `modal.Secret.from_dotenv()` or similar if you need environment variables.  
+   - Make sure your `@app.function(..., schedule=modal.Cron(...))` is configured to the desired schedule.  
+   - Example:
+     ```python
+     @app.function(schedule=modal.Cron("0 9 * * *"))
+     def scheduled_daily_prediction():
+         # ...
+     ```
+
+4. **Run Locally First**  
+   - Test your code locally:
+     ```bash
+     modal run main.py
+     ```
+   - This runs your functions inside the Modal environment but triggers from your local machine.
+
+5. **Confirm the Scheduled Function**  
+   - Once confirmed, your scheduled function (`scheduled_daily_prediction` in the example) will run automatically at the specified time (e.g., 9:00 UTC daily).  
+   - Check your Modal dashboard to verify that the schedule is active and see logs.
+
+6. **Production & Logs**  
+   - As your Modal tasks run daily, they will produce logs which you can either store in AWS S3 or read directly from Modal’s logs.  
+   - If configured to write CSV files to S3, confirm that the data is uploading correctly.
+
+By following these steps, you’ll have a fully automated daily prediction job running in Modal’s serverless containers. The pipeline will:
+- Fetch/prepare data daily
+- Run model predictions
+- Optionally log results to AWS S3
+- Expose logs for debugging and analysis
 
 ---
 
 ## 🔮 Future Steps & Enhancements
-   
+
 1. **Expanded Ticker Coverage**  
    - Increase coverage from a few tickers to a broader watchlist with sector diversity.
 
@@ -127,9 +185,10 @@
 
 3. **Advanced ML Techniques**  
    - Explore Transformers, or other advanced architectures for improved time-series predictions.
-     
-4. **Study Politicians Trades**
+
+4. **Study Politicians Trades**  
    - Use trade data of politicians to learn how to find the best ones, or just outright copy their trades.
+
 ---
 
 ## 🧠 Key Learnings & Insights
@@ -148,6 +207,3 @@
   
 - **Iterative Problem Solving**  
   - Overcoming challenges such as data alignment and environment issues reinforces the value of continuous learning and adaptation.
-
----
-
