@@ -1,4 +1,4 @@
-# Evergreen Stock Prediction & Sentiment Analysis
+# Evergreen Ensemble Stock Prediction Model
 
 > A daily stock prediction platform that merges historical market data, sentiment analysis, and ensemble ML models, leveraging robust cloud infrastructure (Modal for daily scheduling, AWS S3 for logs, and Streamlit for UI – optionally hosted on Streamlit Community Cloud or deployable locally).
 
