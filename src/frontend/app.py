@@ -10,6 +10,7 @@ import matplotlib.ticker as mticker  # renamed to avoid conflict with 'ticker' v
 from trading_dashboard import trading_dashboard
 import boto3
 import io
+import datetime
 
 def load_data():
     """
@@ -39,6 +40,7 @@ def load_data():
         objects = response.get("Contents", [])
         
         if not objects:
+            st.warning("No prediction logs found in S3.")
             return pd.DataFrame()
         
         # Sort objects by LastModified descending and get the latest one.
@@ -98,10 +100,29 @@ def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"
     ax.set_title(f"{ticker} - Predicted vs Actual")
     return fig
 
+def display_trade_confirmation(trade_details):
+    """
+    Displays a short, cute text blurb about the trade:
+    - Ticker
+    - Buy or Sell
+    - Quantity
+    - Confirmed or Denied
+    """
+    symbol = trade_details.get("symbol", "N/A")
+    side = trade_details.get("side", "N/A")
+    qty = trade_details.get("qty", "N/A")
+    status = trade_details.get("status", "N/A")
+
+    # Consider 'filled' or 'confirmed' as a successful trade.
+    if status.lower() in ["filled", "confirmed"]:
+        st.success(f"Trade Confirmed! You just placed a {side.upper()} order for {qty} shares of {symbol}.")
+    else:
+        st.error(f"Trade {status.capitalize()}! Your order to {side.upper()} {qty} shares of {symbol} was not approved.")
+
 def app():
     st.set_page_config(page_title="Evergreen Investments Dashboard", layout="wide")
     st.title("Evergreen Investments - Daily Stock Predictions Dashboard")
-
+    
     # Disclaimer section.
     st.markdown("""
     **Disclaimer:**  
@@ -114,11 +135,11 @@ def app():
     if df.empty:
         st.stop()  # Stop execution without printing any extra messages.
 
-    # Display a note with the latest prediction data date.
-    latest_date = df['timestamp'].max().date()
+    # Display a note with the latest prediction data date, but subtract one day.
+    latest_date = df['timestamp'].max().date() - datetime.timedelta(days=1)
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
 
-    # Sidebar: Stock selection from a radio button (dropdown alternatives may not display options on mobile).
+    # Sidebar: Stock selection from a radio button.
     available_stocks = ["AAPL", "AMZN", "MSFT", "QQQ", "SPY"]
     selected_stock = st.sidebar.radio("Select Stock", available_stocks)
 
@@ -128,7 +149,7 @@ def app():
         st.warning(f"No data found for ticker {selected_stock}. Please try another ticker.")
         st.stop()
 
-    # Sidebar custom up/down indicator with enlarged display.
+    # Sidebar custom up/down indicator with enhanced styling.
     latest_entry = df_stock.iloc[-1]
     price_pred = f"{latest_entry['predicted_close']:.2f}"
     direction = latest_entry["direction"].lower()
@@ -209,6 +230,7 @@ def app():
 
     # Tab 5: Trading Dashboard.
     with tab5:
+        st.subheader("Trading Dashboard")
         trading_dashboard()
 
 if __name__ == "__main__":
