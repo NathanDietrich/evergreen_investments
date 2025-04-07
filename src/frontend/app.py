@@ -118,9 +118,9 @@ def app():
     latest_date = df['timestamp'].max().date()
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
 
-    # Sidebar: Stock selection from a dropdown menu (only allow AAPL, AMZN, MSFT, QQQ, SPY).
+    # Sidebar: Stock selection from a radio button (dropdown alternatives may not display options on mobile).
     available_stocks = ["AAPL", "AMZN", "MSFT", "QQQ", "SPY"]
-    selected_stock = st.sidebar.selectbox("Select Stock", available_stocks)
+    selected_stock = st.sidebar.radio("Select Stock", available_stocks)
 
     # Filter and sort data for the selected stock (using case-insensitive matching).
     df_stock = df[df["ticker"].str.upper() == selected_stock.upper()].copy().sort_values("timestamp")
