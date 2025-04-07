@@ -4,7 +4,7 @@
 
 ---
 
-## 🚀 Project Overview
+## Project Overview
 
 - **Stock Price Prediction & Sentiment Analysis**  
   Combines **historical market data**, **sentiment signals**, and **ensemble ML** models to forecast near-future prices and price direction.
@@ -19,7 +19,7 @@
 
 ---
 
-## 📂 Data Collection & Preparation
+## Data Collection & Preparation
 
 - **Data Sources**  
   - **Polygon** for historical market data and news data.  
@@ -31,7 +31,7 @@
 
 ---
 
-## 🧠 Model Development & Training
+## Model Development & Training
 
 - **Ensemble ML Approach**  
   - Evaluated multiple algorithms (LSTM, CNN, RNN, ARIMA).  
@@ -43,7 +43,7 @@
 
 ---
 
-## 🚧 Top 5 Challenges & Solutions
+## Top 5 Challenges & Solutions
 
 1. **Scaling & Data Leakage**  
    - **Issue:** Multiple scalers for different subsets led to mismatched predictions.  
@@ -67,7 +67,7 @@
 
 ---
 
-## ⚠️ Assumptions & Justifications
+## Assumptions & Justifications
 
 - **Historical Data Projects Future**  
   - Assumes past trends and technical signals remain relevant in the short term.
@@ -80,7 +80,7 @@
 
 ---
 
-## ☁️ Cloud Workflow
+##  Cloud Workflow
 
 1. **Modal**  
    - Orchestrates a daily job (cron task) to fetch data, run predictions, and save logs.
@@ -96,7 +96,7 @@
 
 ---
 
-## 🔧 Local Deployment vs. Modal Deployment
+## Local Deployment vs. Modal Deployment
 
 ### Local Deployment
 - **Purpose:**  
@@ -162,7 +162,7 @@
 
 ---
 
-## 📚 Deploying on Streamlit Community Cloud
+## Deploying on Streamlit Community Cloud
 
 1. **GitHub Repository Setup:**  
    - Create a GitHub repository for your project.
@@ -182,7 +182,7 @@
 
 ---
 
-## 🔮 Future Steps & Enhancements
+## Future Steps & Enhancements
 
 1. **Expanded Ticker Coverage:**  
    - Increase coverage from a few tickers to a broader watchlist with sector diversity.
@@ -198,7 +198,7 @@
 
 ---
 
-## 🧠 Key Learnings & Insights
+## Key Learnings & Insights
 
 - **Consistent Data Preprocessing is Crucial:**  
   - Using a single scaler and robust feature engineering enhances model reliability.
