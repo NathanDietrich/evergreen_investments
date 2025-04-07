@@ -50,8 +50,8 @@ def create_and_save_scalers(df, ticker, target_col='CloseTomorrow', exclude_cols
     joblib.dump(scaler_features, features_scaler_path)
     joblib.dump(scaler_target, target_scaler_path)
     
-    print(f"✅ Feature scaler saved to: {features_scaler_path}")
-    print(f"✅ Target scaler saved to: {target_scaler_path}")
+    print(f"Feature scaler saved to: {features_scaler_path}")
+    print(f"Target scaler saved to: {target_scaler_path}")
     
     return df_scaled, scaler_features, scaler_target
 
@@ -73,10 +73,10 @@ def apply_existing_scalers(df, ticker, target_col='CloseTomorrow', exclude_cols=
     target_scaler_path = os.path.join(scaler_dir, f"{ticker}_target_scaler.pkl")
     
     if not os.path.exists(features_scaler_path):
-        print(f"⚠️ Feature scaler not found for {ticker} at {features_scaler_path}.")
+        print(f"Feature scaler not found for {ticker} at {features_scaler_path}.")
         return None, None
     if not os.path.exists(target_scaler_path):
-        print(f"⚠️ Target scaler not found for {ticker} at {target_scaler_path}.")
+        print(f"Target scaler not found for {ticker} at {target_scaler_path}.")
         return None, None
     
     scaler_features = joblib.load(features_scaler_path)
@@ -101,7 +101,7 @@ def invert_target_scaling(predictions, ticker, scaler_dir=None):
     
     scaler_target_path = os.path.join(scaler_dir, f"{ticker}_target_scaler.pkl")
     if not os.path.exists(scaler_target_path):
-        print(f"⚠️ Target scaler not found for {ticker} at {scaler_target_path}. Returning predictions as-is.")
+        print(f"Target scaler not found for {ticker} at {scaler_target_path}. Returning predictions as-is.")
         return predictions.flatten()
     scaler_target = joblib.load(scaler_target_path)
     predictions_2d = np.array(predictions).reshape(-1, 1)
