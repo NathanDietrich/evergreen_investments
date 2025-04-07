@@ -68,7 +68,7 @@ def fetch_sentiment_data_polygon(ticker, start_date, end_date, api_key, limit=10
                     break
                 params["cursor"] = next_cursor
             else:
-                print(f"⚠️ Error fetching sentiment data for {ticker}: {response.text}")
+                print(f"Error fetching sentiment data for {ticker}: {response.text}")
                 break
         current_start_date = chunk_end_date
         time.sleep(14)
@@ -151,24 +151,24 @@ def collect_raw_data():
         print("Please set your Polygon API key in the environment variable Polygon_Key")
         return
     print(f"\n================== Processing {ticker} ==================")
-    print(f"📊 Fetching stock data for {ticker} from {start_date} to {end_date}...")
+    print(f"Fetching stock data for {ticker} from {start_date} to {end_date}...")
     stock_df = fetch_stock_data_polygon(ticker, start_date, end_date, api_key)
     if stock_df is None:
-        print(f"❌ No stock data found for {ticker}.")
+        print(f"No stock data found for {ticker}.")
         return
-    print(f"📰 Fetching sentiment data for {ticker} from {start_date} to {end_date}...")
+    print(f"Fetching sentiment data for {ticker} from {start_date} to {end_date}...")
     news_data = fetch_sentiment_data_polygon(ticker, start_date, end_date, api_key, limit=1000)
     if not news_data:
-        print(f"⚠️ No news data found for {ticker}. Proceeding without sentiment data.")
-    print("💡 Performing sentiment analysis...")
+        print(f"No news data found for {ticker}. Proceeding without sentiment data.")
+    print("Performing sentiment analysis...")
     sentiment_data = analyze_sentiment(news_data)
-    print("🔗 Merging stock and sentiment data...")
+    print("Merging stock and sentiment data...")
     merged_df = merge_stock_and_sentiment(stock_df, sentiment_data)
     save_dir = "data/StockData"  # local directory for raw data
     os.makedirs(save_dir, exist_ok=True)
     filename = os.path.join(save_dir, f"{ticker}_{start_date}_to_{end_date}_raw.csv")
     merged_df.to_csv(filename, index=False)
-    print(f"✅ Raw data for {ticker} saved to: {filename}")
+    print(f"Raw data for {ticker} saved to: {filename}")
 
 # Run raw data collection only when executing this module directly.
 if __name__ == "__main__":
