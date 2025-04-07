@@ -3,7 +3,6 @@
 > A daily stock prediction platform that merges historical market data, sentiment analysis, and ensemble ML models, leveraging robust cloud infrastructure (Modal for daily scheduling, AWS S3 for logs, and Streamlit for UI – optionally hosted on Streamlit Community Cloud or deployable locally).
 
 ---
-
 ## Project Overview
 
 - **Stock Price Prediction & Sentiment Analysis**  
@@ -18,6 +17,9 @@
   - Deployable on **Streamlit Community Cloud** or self-hosted, as desired.
 
 ---
+
+Visit the [Evergreen Investments Dashboard](https://evergreen-investments-trading-dashboard.streamlit.app/) to see the project in action.
+
 
 ## Data Collection & Preparation
 
