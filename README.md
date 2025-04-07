@@ -26,7 +26,7 @@
 
 - **Data Preprocessing**  
   - Handling missing values, detecting outliers, and aligning time-series data.
-  - Feature engineering: moving averages (MA), RSI, MACD, etc.
+  - Feature Engineering: Moving Averages (MA), Relative Strength Index (RSI), Moving Average Convergence Divergence (MACD), and other technical indicators are used to enrich the prediction model.
   - **Scaling:** Using a single `scaler_x` to ensure consistent transformations across training, validation, and test sets.
 
 ---
