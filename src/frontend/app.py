@@ -118,7 +118,7 @@ def app():
     latest_date = df['timestamp'].max().date()
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
 
-    # Sidebar: Stock selection from a dropdown menu.
+    # Sidebar: Stock selection from a dropdown menu (only allow AAPL, AMZN, MSFT, QQQ, SPY).
     available_stocks = ["AAPL", "AMZN", "MSFT", "QQQ", "SPY"]
     selected_stock = st.sidebar.selectbox("Select Stock", available_stocks)
 
