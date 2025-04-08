@@ -130,8 +130,8 @@ def app():
     if df.empty:
         st.stop()  # Stop execution if no data is available.
 
-    # Display the latest prediction date (subtracting one day).
-    latest_date = df['timestamp'].max().date() - datetime.timedelta(days=1)
+    # Display the latest prediction date without subtracting one day.
+    latest_date = df['timestamp'].max().date()
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
     
     # Sidebar: Stock selection.
