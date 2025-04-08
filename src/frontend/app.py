@@ -15,8 +15,8 @@ def load_data():
     """
     Loads the daily predictions log CSV from S3.
     AWS credentials and bucket info are expected to be in Streamlit's secrets.
-    Updated to use the new file location under the key prefix:
-    "evergreen-investments-daily-predictions-log".
+    Reads from the CSV stored at:
+    s3://evergreen-investments-daily-predictions-log
     """
     try:
         # Read AWS credentials and bucket info from secrets.
@@ -33,8 +33,8 @@ def load_data():
             region_name=aws_region
         )
         
-        # Define the new prefix that corresponds to the S3 URL
-        # s3://evergreen-investments-daily-predictions-log.
+        # Use the key prefix corresponding to the S3 path:
+        # s3://evergreen-investments-daily-predictions-log
         prefix = "evergreen-investments-daily-predictions-log"
         
         # List objects with the given prefix.
