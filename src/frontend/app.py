@@ -14,16 +14,17 @@ import datetime
 def load_data():
     """
     Loads the daily predictions log CSV from S3.
-    AWS credentials and bucket info are expected to be in Streamlit's secrets.
-    Reads from the CSV stored at:
-    s3://evergreen-investments-daily-predictions-log
+    AWS credentials are expected in Streamlit's secrets.
+    Reads from bucket: evergreen-investments-daily-predictions-log  
+    and file: daily_predictions_log.csv
     """
     try:
-        # Read AWS credentials and bucket info from secrets.
+        # Read AWS credentials. (Bucket is now hardcoded.)
         aws_access_key_id = st.secrets["AWS_ACCESS_KEY_ID"]
         aws_secret_access_key = st.secrets["AWS_SECRET_ACCESS_KEY"]
         aws_region = st.secrets.get("AWS_REGION", "us-west-2")
-        bucket_name = st.secrets["S3_BUCKET"]
+        bucket_name = "evergreen-investments-daily-predictions-log"
+        key = "daily_predictions_log.csv"
         
         # Initialize S3 client.
         s3 = boto3.client(
@@ -33,24 +34,8 @@ def load_data():
             region_name=aws_region
         )
         
-        # Use the key prefix corresponding to the S3 path:
-        # s3://evergreen-investments-daily-predictions-log
-        prefix = "evergreen-investments-daily-predictions-log"
-        
-        # List objects with the given prefix.
-        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
-        objects = response.get("Contents", [])
-        
-        if not objects:
-            st.warning("No prediction logs found in S3.")
-            return pd.DataFrame()
-        
-        # Sort objects by LastModified descending and get the latest one.
-        latest_object = sorted(objects, key=lambda obj: obj["LastModified"], reverse=True)[0]
-        latest_key = latest_object["Key"]
-        
         # Download the file from S3 into memory.
-        obj = s3.get_object(Bucket=bucket_name, Key=latest_key)
+        obj = s3.get_object(Bucket=bucket_name, Key=key)
         df = pd.read_csv(io.BytesIO(obj['Body'].read()))
         
         # Parse the timestamp column.
@@ -90,13 +75,13 @@ def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"
     green_line = mlines.Line2D([], [], color='green', label='Predicted (Correct Dir)')
     red_line = mlines.Line2D([], [], color='red', label='Predicted (Wrong Dir)')
     ax.legend(handles=[blue_line, green_line, red_line])
-
+    
     # Add grid lines.
     ax.grid(True, which='major', linestyle='--', alpha=0.7)
     
     # Increase the number of major ticks on the Y-axis for better price granularity.
     ax.yaxis.set_major_locator(mticker.MaxNLocator(10))
-
+    
     ax.set_xlabel('Date')
     ax.set_ylabel('Price')
     ax.set_title(f"{ticker} - Predicted vs Actual")
@@ -104,7 +89,7 @@ def plot_pred_vs_actual_with_direction(dates, actual, predicted, ticker="Ticker"
 
 def display_trade_confirmation(trade_details):
     """
-    Displays a short, cute text blurb about the trade:
+    Displays a short text blurb about the trade:
     - Ticker
     - Buy or Sell
     - Quantity
@@ -114,7 +99,7 @@ def display_trade_confirmation(trade_details):
     side = trade_details.get("side", "N/A")
     qty = trade_details.get("qty", "N/A")
     status = trade_details.get("status", "N/A")
-
+    
     # Consider 'filled' or 'confirmed' as a successful trade.
     if status.lower() in ["filled", "confirmed"]:
         st.success(f"Trade Confirmed! You just placed a {side.upper()} order for {qty} shares of {symbol}.")
@@ -129,7 +114,7 @@ def app():
     df = load_data()
     if df.empty:
         st.stop()  # Stop execution if no data is available.
-
+    
     # Display the latest prediction date without subtracting one day.
     latest_date = df['timestamp'].max().date()
     st.markdown(f"**Latest prediction data is from: {latest_date}**")
@@ -143,7 +128,7 @@ def app():
     if df_stock.empty:
         st.warning(f"No data found for ticker {selected_stock}. Please try another ticker.")
         st.stop()
-
+    
     # Sidebar: Custom up/down indicator.
     latest_entry = df_stock.iloc[-1]
     price_pred = f"{latest_entry['predicted_close']:.2f}"
